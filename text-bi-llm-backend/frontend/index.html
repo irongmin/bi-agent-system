@@ -1,0 +1,2485 @@
+﻿<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ILJI TECH AI Control Tower</title>
+
+  <!-- Dashboard에서 쓰는 라이브러리 그대로 유지 -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+
+  <!-- ✅ 로그인 타이틀 폰트: 로고 느낌 근접 -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- ✅ 스플래시/로그인 CSS는 기존 외부파일 유지 -->
+  <link rel="stylesheet" href="./app.css" />
+
+  <style>
+    :root{
+      --bg: #f5f5f7;
+      --card: #ffffff;
+      --text: #1d1d1f;
+      --muted: #6e6e73;
+      --line: #e5e5ea;
+      --shadow: 0 8px 24px rgba(0,0,0,0.06);
+
+      --blue: #007aff;
+      --green: #34c759;
+      --yellow: #ffcc00;
+      --red: #ff3b30;
+      --accent: #1f9d55;
+      --surface-dark: #1f2733;
+      --surface-dark-2: #22252d;
+      --text-dark: #eef1f7;
+
+      /* ✅ sidebar "불 켜진" 기본 톤 */
+      --navBaseBg: rgba(46, 204, 113, 0.10);
+      --navBaseBorder: rgba(46, 204, 113, 0.18);
+      --navHoverBg: rgba(46, 204, 113, 0.18);
+      --navHoverBorder: rgba(46, 204, 113, 0.32);
+
+      /* ✅ 로그인 버튼/포커스 (파란빛) */
+      --loginBlueTop: #0A84FF;
+      --loginBlueBottom: #0066CC;
+      --loginBlueBorder: rgba(46, 204, 113, 0.55);
+      --loginFocusRing: rgba(46, 204, 113, 0.18);
+
+      /* ✅ 테이블 */
+      --tableHeaderBg: rgba(245,245,247,0.92);
+      --tableStripe: rgba(0,0,0,0.015);
+      --tableHover: rgba(0,122,255,0.06);
+      --tableCellPadY: 12px;
+      --tableCellPadX: 12px;
+      --tableRadius: 14px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    .hidden { display: none !important; }
+
+    /* Gemini-style dark palette when agent mode is on */
+    body.agent-dark{
+      --bg: #131314;
+      --card: #1e1f20;
+      --text: #f4f6f9;
+      --muted: #b8bec6;
+      --line: rgba(255,255,255,0.07);
+      --shadow: 0 4px 14px rgba(0,0,0,0.16);
+      --accent: #f4a261;
+      --surface-dark: #1f2733;
+      --surface-dark-2: #1e1f20;
+      --text-dark: #e6e8eb;
+    }
+
+    @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes skeletonShimmer { 0% { background-position: -200px 0; } 100% { background-position: 200px 0; } }
+
+    body {
+      font-family: "Noto Sans KR", "Apple SD Gothic Neo", "Segoe UI", ui-sans-serif, -apple-system, BlinkMacSystemFont, Roboto, "Malgun Gothic", sans-serif;
+      font-weight: 500;
+      background: var(--bg);
+      color: var(--text);
+      overflow: hidden;
+    }
+    .app { display: flex; flex-direction: column; height: 100vh; }
+
+    /* 공통 카드 */
+    .card{
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+    }
+
+    /* 정밀분석 모드: 다크 톤 + 오렌지 포커스 */
+    body.agent-dark{
+      background: var(--surface-dark-2);
+      color: var(--text-dark);
+    }
+    body.agent-dark .card{
+      background: var(--card);
+      border-color: var(--line);
+      box-shadow: 0 12px 32px rgba(0,0,0,0.24);
+    }
+    body.agent-dark .header,
+    body.agent-dark .content-header{
+      background: var(--card);
+      border-color: var(--line);
+      box-shadow: 0 8px 22px rgba(0,0,0,0.22);
+    }
+    body.agent-dark .sidebar{
+      background: var(--card);
+      border-color: var(--line);
+    }
+    body.agent-dark .nav-item{
+      background: rgba(242,140,56,0.08);
+      border-color: rgba(242,140,56,0.2);
+      color: #f7f9fd;
+      box-shadow: 0 6px 18px rgba(242,140,56,0.08);
+    }
+    body.agent-dark .nav-item.active{
+      background: rgba(242,140,56,0.18);
+      border-color: rgba(242,140,56,0.35);
+      color: #fff;
+    }
+    body.agent-dark .status-info{
+      background: rgba(255,255,255,0.14);
+      border-color: rgba(242,140,56,0.3);
+      color: #f7f9fd;
+    }
+    body.agent-dark .panel-subtitle,
+    body.agent-dark .panel-title,
+    body.agent-dark .kpi-label,
+    body.agent-dark .breadcrumb,
+    body.agent-dark .chat-header,
+    body.agent-dark .mode-row,
+    body.agent-dark .quick-inline button{
+      color: #eef1f7;
+    }
+    body.agent-dark .chart-area{
+      background: #1f222a;
+      border-color: rgba(242,140,56,0.35);
+    }
+    body.agent-dark .query-input,
+    body.agent-dark .select,
+    body.agent-dark .text{
+      background: #1b1c1f;
+      border-color: rgba(255,255,255,0.08);
+      color: #e6e8eb;
+    }
+    body.agent-dark .btn-execute,
+    body.agent-dark .mini-btn{
+      background: linear-gradient(180deg, #f7b26d, #f4a261);
+      color: #111217;
+      border: 1px solid rgba(244,162,97,0.5);
+      box-shadow: 0 8px 18px rgba(244,162,97,0.24);
+    }
+    body.agent-dark .agent-panel{
+      background: rgba(25,33,46,0.9);
+      border-color: rgba(242,140,56,0.4);
+      color: #eef1f7;
+    }
+    body.agent-dark .panel-subtitle{ color: #fbbf24; }
+    body.agent-dark .data-table th,
+    body.agent-dark .data-table td{
+      color: #eef1f7;
+      background: rgba(16,24,39,0.8);
+      border-color: rgba(255,255,255,0.08);
+    }
+
+    /* 헤더: 화이트 + 블러 */
+    .header {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: rgba(255,255,255,0.82);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--line);
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .header-left { display:flex; align-items:center; gap:12px; }
+    .company-logo {
+      background: var(--card);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      border-radius: 14px;
+      padding: 10px 12px;
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+    .logo-icon {
+      width: 34px; height: 34px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, rgba(0,122,255,0.18), rgba(0,122,255,0.04));
+      border: 1px solid rgba(0,122,255,0.25);
+    }
+    .company-name { display:flex; flex-direction:column; line-height: 1.1; }
+    .company-title { font-size:14px; font-weight:700; letter-spacing:-0.2px; }
+    .company-subtitle { font-size:11px; color: var(--muted); margin-top:2px; }
+
+    .system-tabs { display:flex; align-items:center; gap:6px; margin-left: 6px; }
+    .tab{
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: var(--card);
+      font-size: 12px;
+      color: var(--muted);
+      cursor: pointer;
+      transition: .15s;
+      user-select: none;
+    }
+    .tab:hover{ transform: translateY(-1px); }
+    .tab.active{
+      color: white;
+      border-color: rgba(244,162,97,0.6);
+      background: #1f9d55;
+    }
+
+    .header-right { margin-left:auto; display:flex; align-items:center; gap:14px; }
+    .status-info {
+      display:flex; align-items:center; gap:8px;
+      font-size: 12px; color: var(--muted);
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 8px 10px;
+    }
+    .status-dot { width:8px; height:8px; background: var(--green); border-radius:50%; }
+    .datetime { font-size:12px; color: var(--muted); }
+
+    /* 레이아웃 */
+    .main-layout { display:flex; flex:1; overflow:hidden; padding: 14px; gap: 14px; }
+
+    /* 사이드바: 라이트 */
+    .sidebar{
+      width: 240px;
+      background: rgba(255,255,255,0.86);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      display:flex; flex-direction:column;
+    }
+    .nav-section{ padding: 14px 12px; border-bottom: 1px solid var(--line); }
+    .nav-title{
+      font-size: 11px;
+      color: var(--muted);
+      font-weight: 700;
+      padding: 0 6px;
+      margin-bottom: 10px;
+      letter-spacing: .2px;
+    }
+    /* 사이드바 메뉴 스타일 */
+    .sidebar .nav-item{
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 12px;
+      margin-bottom: 6px;
+      font-size: 13px;
+      color: var(--text);
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: var(--card);
+      transition: all 0.18s ease;
+    }
+    .sidebar .nav-item:hover{
+      background: var(--accent);
+      color: #0f1720;
+      border-color: var(--accent);
+      box-shadow: 0 6px 14px rgba(31,157,85,0.22);
+    }
+    .sidebar .nav-item.active{
+      background: var(--accent);
+      color: #0f1720;
+      font-weight: 700;
+      border-color: var(--accent);
+      box-shadow: 0 8px 18px rgba(31,157,85,0.26);
+    }
+    /* 정밀분석 모드에서도 동일 적용 */
+    body.agent-dark .sidebar .nav-item{
+      background: var(--card);
+      border: 1px solid var(--line);
+      color: var(--text);
+    }
+    body.agent-dark .sidebar .nav-item:hover{
+      background: var(--accent);
+      color: #0f1720;
+      border-color: var(--accent);
+      box-shadow: 0 6px 14px rgba(244,162,97,0.22);
+    }
+    body.agent-dark .sidebar .nav-item.active{
+      background: var(--accent);
+      color: #0f1720;
+      font-weight: 700;
+      border-color: var(--accent);
+      box-shadow: 0 8px 18px rgba(244,162,97,0.26);
+    }
+    /* 정밀모드일 때 자주 찾는 질문 숨김 */
+    body.agent-dark .nav-quick{ display: none; }
+
+    /* ✅ 기본 상태에서 전부 불 켠 느낌 */
+    .nav-item{
+      display:flex; align-items:center; gap:10px;
+      padding: 10px 10px;
+      border-radius: 12px;
+      color: var(--text);
+      font-size: 13px;
+      cursor:pointer;
+      transition: transform .15s, background .15s, border-color .15s, box-shadow .15s, color .15s;
+      user-select: none;
+      background: var(--navBaseBg);
+      border: 1px solid var(--navBaseBorder);
+      box-shadow: 0 6px 16px rgba(0,122,255,0.06);
+    }
+
+    .nav-item:hover{
+      background: var(--navHoverBg);
+      border-color: var(--navHoverBorder);
+      transform: translateY(-1px);
+      box-shadow: 0 10px 22px rgba(0,122,255,0.12);
+    }
+
+    .nav-item.active{
+      color: var(--text);
+      background: rgba(0,122,255,0.14);
+      border-color: rgba(0,122,255,0.26);
+      box-shadow: 0 8px 18px rgba(0,122,255,0.10);
+      font-weight: 800;
+    }
+    .nav-icon{ opacity:.85; }
+
+    /* 메인 */
+    .main-content{
+      flex:1;
+      overflow-y:auto;
+      background: transparent;
+    }
+    .content-header{
+      background: var(--card);
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+      margin-bottom: 14px;
+    }
+    .content-title{ font-size: 24px; font-weight: 900; letter-spacing:-0.5px; }
+    .breadcrumb{ font-size: 12px; color: var(--muted); margin-top: 6px; }
+    .content-body{ padding: 2px 4px 24px 4px; }
+
+    .page-content{ display:none; }
+    .page-content.active{ display:block; }
+
+    /* 질의 패널 */
+    .query-panel{ padding: 18px; margin-bottom: 14px; animation: slideIn .35s ease; }
+    .panel-header{
+      display:flex; align-items:center; justify-content:space-between;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .panel-title{ font-size: 14px; font-weight: 900; }
+    .query-form{ display:flex; gap: 10px; align-items:center; }
+    .query-input{
+      flex:1;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      outline: none;
+      font-size: 14px;
+      background: var(--card);
+    }
+    .query-input:focus{
+      border-color: rgba(0,122,255,0.45);
+      box-shadow: 0 0 0 4px rgba(0,122,255,0.12);
+    }
+    .btn-execute{
+      padding: 12px 16px;
+      border-radius: 12px;
+      border: 1px solid rgba(31,157,85,0.55);
+      background: linear-gradient(180deg, #2fbd73, #1f9d55);
+      color: #0b1a11;
+      font-weight: 900;
+      cursor: pointer;
+      transition: .15s;
+      white-space: nowrap;
+    }
+    .btn-execute:hover:not(:disabled){ transform: translateY(-1px); }
+    .btn-execute:disabled{ opacity:.6; cursor:not-allowed; }
+
+    /* 정밀 분석 토글 & 에이전트 패널 */
+    .mode-row{
+      margin-top: 10px;
+      display:flex;
+      justify-content:flex-end;
+      align-items:center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .mode-toggle{
+      position: relative;
+      display: inline-block;
+      width: 42px;
+      height: 22px;
+    }
+    .mode-toggle input{ opacity:0; width:0; height:0; }
+    .mode-toggle-slider{
+      position:absolute; inset:0;
+      cursor:pointer;
+      background:#7f8c8d;
+      transition:.2s;
+      border-radius:22px;
+    }
+    .mode-toggle-slider:before{
+      position:absolute;
+      content:"";
+      height:16px; width:16px;
+      left:3px; bottom:3px;
+      background:white;
+      transition:.2s;
+      border-radius:50%;
+    }
+    .mode-toggle input:checked + .mode-toggle-slider{ background: var(--accent); }
+    .mode-toggle input:checked + .mode-toggle-slider:before{ transform: translateX(18px); }
+    .agent-panel{
+      display:none;
+      margin-top:10px;
+      background:#1a252f;
+      color:#ecf0f1;
+      padding:10px 12px;
+      border-left:4px solid var(--accent);
+      font-size:12px;
+      border-radius: 12px;
+    }
+    .agent-title{ font-weight:700; margin-bottom:6px; }
+    .agent-steps{ display:flex; flex-direction:column; gap:4px; }
+    .agent-step{ display:flex; align-items:center; gap:8px; }
+    .agent-step-status{
+      width:10px; height:10px; border-radius:50%;
+      background:#7f8c8d;
+    }
+    .agent-step-status.running{ background:#f1c40f; animation: pulse 1.2s infinite; }
+    .agent-step-status.done{ background:#2ecc71; }
+    .agent-step-label{ flex:0 0 140px; }
+    .agent-step-desc{ flex:1; color:#bdc3c7; }
+
+    /* 빠른 질문 인라인 */
+    .quick-inline{
+      margin-top: 10px;
+      display:flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .quick-inline button{
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: rgba(0,122,255,0.08);
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 800;
+      color: var(--text);
+      transition: .15s;
+    }
+    .quick-inline button:hover{
+      transform: translateY(-1px);
+      background: rgba(0,122,255,0.16);
+      border-color: rgba(0,122,255,0.26);
+    }
+
+    /* 정밀 분석 결과 슬라이드 */
+    .result-overlay{
+      position: fixed;
+      inset: 0;
+      background: rgba(19,19,20,0.92);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      z-index: 999;
+      display: none;
+      opacity: 0;
+      transform: translateY(12px);
+      transition: opacity .25s ease, transform .25s ease;
+      padding: 14px;
+    }
+    @keyframes overlayRise {
+      0% { opacity: 0; transform: translate3d(0, 80px, 0); }
+      100% { opacity: 1; transform: translate3d(0, 0, 0); }
+    }
+    @keyframes cardRise {
+      0% { opacity: 0; transform: translate3d(0, 50px, 0); }
+      100% { opacity: 1; transform: translate3d(0, 0, 0); }
+    }
+    .result-overlay.show{
+      display: block;
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .result-shell{
+      background: #1e1f20;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.45);
+      padding: 14px;
+      height: calc(100vh - 28px);
+      overflow-y: auto;
+      animation: overlayRise 1.6s cubic-bezier(0.2,0.8,0.2,1);
+    }
+    .result-card{
+      background: var(--card);
+      border: 1px solid var(--line);
+    }
+    .result-grid > *{
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    .result-overlay.show .result-grid > *{
+      animation: cardRise 1.2s ease forwards;
+    }
+    /* 결과 카드 텍스트 컬러 통일 */
+    #resultInsight,
+    #resultReport{
+      color: var(--text);
+    }
+    .result-grid > *:nth-child(1){ animation-delay: 0.20s; }
+    .result-grid > *:nth-child(2){ animation-delay: 0.40s; }
+    .result-grid > *:nth-child(3){ animation-delay: 0.60s; }
+    .result-grid > *:nth-child(4){ animation-delay: 0.80s; }
+    .result-grid > *:nth-child(5){ animation-delay: 1.00s; }
+    .result-grid > *:nth-child(6){ animation-delay: 1.20s; }
+    .result-grid > *:nth-child(7){ animation-delay: 1.40s; }
+    .result-card .panel-subtitle{ margin-bottom: 6px; }
+    .result-card{
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: none;
+    }
+    .result-bar{
+      display:flex;
+      justify-content: space-between;
+      align-items:center;
+      margin-bottom: 12px;
+      color: #f3f4f6;
+    }
+    .result-close{
+      border:none;
+      background: rgba(255,149,64,0.18);
+      color: #fff;
+      border-radius: 10px;
+      padding: 8px 12px;
+      cursor: pointer;
+      font-weight: 800;
+    }
+    .result-grid{
+      display:grid;
+      grid-template-columns: repeat(12,1fr);
+      gap: 12px;
+    }
+    .result-card{
+      background: rgba(15,23,42,0.85);
+      border: 1px solid rgba(255,149,64,0.22);
+      border-radius: 14px;
+      padding: 12px;
+      color: #e5e7eb;
+    }
+    .result-kpis{
+      grid-column: span 12;
+      display:grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px,1fr));
+      gap: 10px;
+    }
+    .result-kpi-value{ font-size:22px; font-weight:900; }
+    .result-kpi-sub{ font-size:12px; color:#cbd5e1; margin-top:4px; }
+    .result-chart{ grid-column: span 7; }
+    .result-table{ grid-column: span 5; max-height: 360px; overflow:auto; }
+    .result-subs{
+      grid-column: span 12;
+      display:grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 10px;
+    }
+    .result-sub{ min-height: 220px; }
+    .result-chart .chart-area,
+    .result-sub .chart-area{
+      border-color: rgba(255,149,64,0.28);
+      background: rgba(10,14,26,0.9);
+    }
+    .result-table table{
+      width: 100%;
+      border-collapse: collapse;
+      color: #e5e7eb;
+    }
+    .result-table th, .result-table td{
+      border: 1px solid rgba(255,255,255,0.08);
+      padding: 8px;
+      font-size: 12px;
+    }
+
+    /* 채팅 */
+    .chat-panel{ padding: 14px; margin-bottom: 14px; }
+    .chat-header{ display:flex; justify-content:space-between; color: var(--muted); font-size: 12px; margin-bottom: 10px; }
+    .chat-list{ max-height: 220px; overflow-y:auto; padding-right: 4px; }
+    .chat-message{ display:flex; margin-bottom: 10px; }
+    .chat-message.user{ justify-content:flex-end; }
+    .chat-message.assistant{ justify-content:flex-start; }
+    .chat-bubble{
+      max-width: 70%;
+      padding: 10px 12px;
+      border-radius: 16px;
+      font-size: 13px;
+      line-height: 1.55;
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, #ffffff, #f7f7fb);
+      white-space: pre-line;
+      text-align: left;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+    }
+    .chat-bubble.user{
+      background: linear-gradient(180deg, #2fbd73, #1f9d55);
+      border-color: rgba(31,157,85,0.45);
+      color: #0b150f;
+    }
+    .chat-bubble.assistant{
+      color: var(--text);
+      background: rgba(255,255,255,0.9);
+      border-color: rgba(0,0,0,0.06);
+    }
+    /* 정밀모드: 사용자 버블 오렌지 */
+    body.agent-dark .chat-bubble.user{
+      background: #f59e0b !important;
+      border-color: rgba(245,158,11,0.45) !important;
+      color: #0b0f1a !important;
+    }
+    .chat-meta{ font-size: 10px; color: var(--muted); margin-top: 4px; }
+
+    /* 대시보드 그리드 */
+    .dashboard-grid{ display:grid; grid-template-columns:repeat(12, 1fr); gap: 14px; animation: slideIn .35s ease; }
+    .insight-panel{ grid-column: span 12; padding: 16px; }
+    .insight-content{ color: var(--text); font-size: 14px; line-height: 1.75; }
+
+    .chart-panel{ grid-column: span 7; padding: 16px; }
+    .table-panel{ grid-column: span 5; padding: 16px; }
+
+    .panel-subtitle{
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 900;
+      margin-bottom: 10px;
+    }
+
+    .chart-area{
+      height: 320px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: var(--card);
+      padding: 10px;
+      display: block;
+      position: relative;
+      overflow: hidden;
+    }
+    #myChart{ width:100% !important; height:100% !important; }
+
+    /* =========================================================
+       ✅ TABLE (scoped) : app.css가 덮어도 안 죽게 강제
+    ========================================================= */
+    #dashboardRoot .table-shell{
+      border: 1px solid var(--line);
+      border-radius: var(--tableRadius);
+      overflow: auto;
+      background: var(--card);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.65);
+      -webkit-overflow-scrolling: touch;
+    }
+    #dashboardRoot .data-table,
+    #dashboardRoot .history-table{
+      width: 100%;
+      min-width: 680px;
+      border-collapse: separate !important;
+      border-spacing: 0 !important;
+    }
+    #dashboardRoot .data-table thead th,
+    #dashboardRoot .history-table thead th{
+      position: sticky; top: 0; z-index: 2;
+      text-align: left;
+      font-size: 11.5px;
+      color: var(--muted);
+      padding: var(--tableCellPadY) var(--tableCellPadX);
+      background: var(--tableHeaderBg);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(0,0,0,0.08);
+      font-weight: 950;
+      letter-spacing: .2px;
+      white-space: nowrap;
+    }
+    #dashboardRoot .data-table tbody td,
+    #dashboardRoot .history-table tbody td{
+      padding: var(--tableCellPadY) var(--tableCellPadX);
+      font-size: 13px;
+      border-bottom: 1px solid rgba(0,0,0,0.06);
+      vertical-align: middle;
+      background: transparent;
+      white-space: nowrap;
+    }
+    #dashboardRoot .data-table tbody tr:nth-child(even) td,
+    #dashboardRoot .history-table tbody tr:nth-child(even) td{
+      background: var(--tableStripe);
+    }
+    #dashboardRoot .data-table tbody tr:hover td,
+    #dashboardRoot .history-table tbody tr:hover td{
+      background: var(--tableHover);
+    }
+    #dashboardRoot .data-table tr.active-row td{
+      background: rgba(0,122,255,0.10) !important;
+    }
+    #dashboardRoot .data-table thead tr th:first-child,
+    #dashboardRoot .history-table thead tr th:first-child{ border-top-left-radius: var(--tableRadius); }
+    #dashboardRoot .data-table thead tr th:last-child,
+    #dashboardRoot .history-table thead tr th:last-child{ border-top-right-radius: var(--tableRadius); }
+    #dashboardRoot .data-table tbody tr:last-child td:first-child,
+    #dashboardRoot .history-table tbody tr:last-child td:first-child{ border-bottom-left-radius: var(--tableRadius); }
+    #dashboardRoot .data-table tbody tr:last-child td:last-child,
+    #dashboardRoot .history-table tbody tr:last-child td:last-child{ border-bottom-right-radius: var(--tableRadius); }
+
+    #dashboardRoot .td-right{ text-align:right !important; font-variant-numeric: tabular-nums; }
+    #dashboardRoot .td-mono{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: .1px;
+    }
+
+    /* KPI */
+    .kpi-section{
+      grid-column: span 12;
+      display:grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+      margin-top: 2px;
+    }
+    .kpi-card{ padding: 14px; }
+    .kpi-label{ font-size: 12px; color: var(--muted); font-weight: 900; margin-bottom: 8px; }
+    .kpi-value{ font-size: 26px; font-weight: 950; letter-spacing: -0.6px; }
+    .kpi-change{ font-size: 12px; color: var(--muted); margin-top: 6px; }
+
+    /* SQL */
+    .sql-panel{ grid-column: span 12; padding: 14px; margin-top: 2px; }
+    .sql-header{ font-size: 12px; color: var(--muted); font-weight: 950; margin-bottom: 10px; }
+    .sql-code{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace;
+      font-size: 12px;
+      line-height: 1.6;
+      color: var(--text);
+      background: rgba(0,0,0,0.04);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 12px;
+      overflow-x: auto;
+      white-space: pre-wrap;
+    }
+
+    /* 공통 패널 */
+    .history-panel{ padding: 16px; }
+
+    /* 툴바 */
+    .toolbar{ display:flex; gap: 10px; align-items:center; flex-wrap:wrap; }
+    .select, .text{
+      padding: 9px 10px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: var(--card);
+      font-size: 13px;
+      outline:none;
+    }
+    .select:focus, .text:focus{
+      border-color: rgba(0,122,255,0.45);
+      box-shadow: 0 0 0 4px rgba(0,122,255,0.12);
+    }
+    .mini-btn{
+      padding: 9px 12px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: var(--card);
+      cursor:pointer;
+      transition: .15s;
+      font-size: 13px;
+      font-weight: 800;
+    }
+    .mini-btn:hover{ transform: translateY(-1px); background: rgba(0,0,0,0.03); }
+
+    /* ✅ 상태 pill */
+    .status-pill{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap: 6px;
+      padding: 7px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 950;
+      letter-spacing: -0.2px;
+      color: white;
+      min-width: 86px;
+      box-shadow: 0 10px 22px rgba(0,0,0,0.08);
+    }
+    .status-pill::before{
+      content:"";
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.9);
+      opacity: .9;
+    }
+    .status-ok{ background: linear-gradient(180deg, rgba(52,199,89,1), rgba(39,174,70,1)); }
+    .status-check{ background: linear-gradient(180deg, rgba(255,204,0,1), rgba(245,180,0,1)); color: #1d1d1f; }
+    .status-check::before{ background: rgba(29,29,31,0.75); }
+    .status-warn{ background: linear-gradient(180deg, rgba(255,59,48,1), rgba(227,46,37,1)); }
+
+    /* Skeleton */
+    .skeleton{
+      background: linear-gradient(90deg, #ececf0 25%, #f6f6f8 37%, #ececf0 63%);
+      background-size: 400px 100%;
+      animation: skeletonShimmer 1.2s ease-in-out infinite;
+      border-radius: 10px;
+    }
+    .skeleton-row{ height: 18px; margin-bottom: 10px; }
+
+    @media (max-width: 1200px) {
+      .chart-panel{ grid-column: span 12; }
+      .table-panel{ grid-column: span 12; }
+      #dashboardRoot .data-table, #dashboardRoot .history-table{ min-width: 860px; }
+    }
+
+    /* =========================================================
+       ✅ LOGIN OVERRIDE
+    ========================================================= */
+    #loginPanel .login-title-main{
+      font-family: "Montserrat", ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+      font-weight: 900 !important;
+      letter-spacing: 0.6px !important;
+    }
+
+    #loginPanel .login-btn,
+    #loginBtn.login-btn{
+      width: 100%;
+      background: linear-gradient(180deg, #2fbd73, #1f9d55) !important;
+      border: 1px solid rgba(31,157,85,0.55) !important;
+      color: #0c150f !important;
+      font-weight: 900 !important;
+      letter-spacing: 0.2px !important;
+      box-shadow: 0 12px 26px rgba(31, 157, 85, 0.28) !important;
+      transition: transform .15s ease, filter .15s ease, box-shadow .15s ease !important;
+    }
+    #loginPanel .login-btn:hover,
+    #loginBtn.login-btn:hover{
+      transform: translateY(-1px);
+      filter: brightness(1.05);
+      box-shadow: 0 16px 32px rgba(31, 157, 85, 0.38) !important;
+    }
+    #loginPanel .login-btn:active,
+    #loginBtn.login-btn:active{
+      transform: translateY(0);
+      filter: brightness(0.98);
+    }
+
+    #loginPanel .login-input:focus{
+      border-color: var(--loginBlueBorder) !important;
+      box-shadow: 0 0 0 4px var(--loginFocusRing) !important;
+      outline: none !important;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- SPLASH + LOGIN (유지) -->
+  <div id="splashRoot" class="splash-root">
+    <div class="splash-stage">
+      <img id="iljiFullLogo" class="ilji-full-logo" src="./ILJI.png" alt="ILJI TECH Full Logo" />
+      <div id="logoAssemble" class="logo-assemble" aria-label="ILJI TECH AI Control Tower Logo">
+        <img id="part4" class="logo-part part4" src="./CT-removebg4.png" alt="Orange Rectangle" />
+        <img id="part1" class="logo-part part1" src="./CT-removebg1.png" alt="Green Tower Base" />
+        <img id="part3" class="logo-part part3" src="./CT-removebg3.png" alt="Top Triangle" />
+        <img id="part2" class="logo-part part2" src="./CT-removebg2.png" alt="ILJI TECH AI Control Tower Text" />
+      </div>
+
+      <div id="loginPanel" class="login-panel" aria-hidden="true">
+        <div class="login-title">
+          <div class="login-title-main">ILJI TECH</div>
+          <div class="login-title-sub">AI Control Tower</div>
+        </div>
+
+        <div class="login-form">
+          <label class="login-label">사번</label>
+          <input id="empNo" class="login-input" type="text" inputmode="numeric" placeholder="1111" autocomplete="off" />
+          <label class="login-label">비밀번호</label>
+          <input id="empPw" class="login-input" type="password" placeholder="1111" autocomplete="off" />
+          <button id="loginBtn" class="login-btn" type="button">로그인</button>
+          <div id="loginMsg" class="login-msg" role="status" aria-live="polite"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div id="dashboardRoot" class="dashboard-root hidden">
+    <div class="app">
+      <header class="header">
+        <div class="header-left">
+          <div class="company-logo">
+            <div class="logo-icon"></div>
+            <div class="company-name">
+              <div class="company-title">ILJI TECH</div>
+              <div class="company-subtitle">일지테크</div>
+            </div>
+          </div>
+          <div class="system-tabs">
+            <div class="tab active">구매관리</div>
+            <div class="tab">생산관리</div>
+            <div class="tab">품질관리</div>
+            <div class="tab">재고관리</div>
+            <div class="tab">설비관리</div>
+          </div>
+        </div>
+        <div class="header-right">
+          <div class="status-info">
+            <div class="status-dot"></div>
+            <span>시스템 정상</span>
+          </div>
+          <div class="datetime" id="datetime"></div>
+        </div>
+      </header>
+
+      <div class="main-layout">
+        <aside class="sidebar">
+          <div class="nav-section">
+            <div class="nav-title">메인 메뉴</div>
+
+            <div class="nav-item active" data-page="dashboard">
+              <span class="nav-icon">■</span>
+              <span>대시보드</span>
+            </div>
+
+            <div class="nav-item" data-page="history">
+              <span class="nav-icon">■</span>
+              <span>분석 히스토리</span>
+            </div>
+
+            <div class="nav-item" data-page="po">
+              <span class="nav-icon">■</span>
+              <span>발주서 생성기</span>
+            </div>
+
+
+          </div>
+
+          <div class="nav-section nav-quick">
+            <div class="nav-title">자주 찾는 질문</div>
+            <div class="nav-item quick-query" data-template="플랜트별 재고금액 상위 10개 보여줘.">
+              <span class="nav-icon">▸</span>
+              <span>재고 TOP 10</span>
+            </div>
+            <div class="nav-item quick-query" data-template="공급업체별 발주금액 상위 10개 보여줘.">
+              <span class="nav-icon">▸</span>
+              <span>공급사 TOP 10</span>
+            </div>
+            <div class="nav-item quick-query" data-template="최근 6개월간 월별 수주금액 추이를 보여줘.">
+              <span class="nav-icon">▸</span>
+              <span>수주 추세</span>
+            </div>
+            <div class="nav-item quick-query" data-template="플랜트별 재고회전율을 비교해줘.">
+              <span class="nav-icon">▸</span>
+              <span>재고 회전율</span>
+            </div>
+          </div>
+
+          <div class="nav-section">
+            <div class="nav-title">시스템</div>
+            <div class="nav-item">
+              <span class="nav-icon">⚙</span>
+              <span>환경설정 (Mock)</span>
+            </div>
+          </div>
+        </aside>
+
+        <main class="main-content">
+          <!-- DASHBOARD PAGE -->
+          <div id="dashboard-page" class="page-content active">
+            <div class="content-header">
+              <div class="content-title">구매 관제탑</div>
+              <div class="breadcrumb">일지테크 관제탑 &gt; 구매관리 &gt; 대시보드</div>
+            </div>
+
+            <div class="content-body">
+              <div class="query-panel card">
+                <div class="panel-header">
+                  <div class="panel-title">궁금한 게 있으신가요?</div>
+                </div>
+                <div class="query-form">
+                  <input type="text" class="query-input" id="queryInput"
+                    placeholder="편하게 물어보세요! 예) 플랜트별 재고금액 상위 10개 보여줘 / 공급사별 발주금액 상위 10개" />
+                  <button class="btn-execute" id="queryButton">확인</button>
+                </div>
+                <div class="mode-row">
+                  <label class="mode-toggle">
+                    <input type="checkbox" id="agentModeToggle">
+                    <span class="mode-toggle-slider"></span>
+                  </label>
+                  <span class="mode-toggle-label"><b>정밀 분석 모드</b> (AI 플로우 연출)</span>
+                </div>
+                <div class="agent-panel" id="agentPanel">
+                  <div class="agent-title">정밀 분석 플로우</div>
+                  <div class="agent-steps" id="agentSteps"></div>
+                </div>
+                <div class="quick-inline">
+                  <button class="quick-button" data-template="구매오더 미결 관리 리포트 보여줘">구매오더 미결 리포트</button>
+                  <button class="quick-button" data-template="미결 경고 건만 요약해줘">경고 건 요약</button>
+                  <button class="quick-button" data-template="미결/경고 추이 차트">미결·경고 추이</button>
+                  <button class="quick-button" data-template="경고 Top 플랜트/생성자/차종 알려줘">경고 Top 분포</button>
+                </div>
+              </div>
+
+              <div class="chat-panel card">
+                <div class="chat-header">
+                  <span>대화형 질의 내역</span>
+                </div>
+                <div class="chat-list" id="chatList">
+                  <div class="chat-message assistant">
+                    <div>
+                      <div class="chat-bubble assistant">안녕하세요. 일지테크 구매 관제탑용 AI입니다. “플랜트별 재고금액 상위 10개 보여줘”처럼 물어보시면 SQL 생성부터 시각화까지 한 번에 도와드릴게요.</div>
+                      <div class="chat-meta">시스템</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="dashboard-grid">
+                <div class="insight-panel card">
+                  <div class="panel-subtitle">AI 인사이트</div>
+                  <div class="insight-content" id="insightText">
+                    질문을 입력하고 "확인" 버튼을 눌러보세요. AI가 데이터에서 시사점을 찾아드립니다.
+                  </div>
+                </div>
+
+                <div class="chart-panel card">
+                  <div class="panel-subtitle">데이터 시각화</div>
+                  <div class="chart-area" id="chartContainer" style="font-size:12px;">
+                    <canvas id="myChart"></canvas>
+                  </div>
+                </div>
+
+                <div class="table-panel card">
+                  <div class="panel-subtitle">조회 결과</div>
+                  <div class="table-shell">
+                    <table class="data-table">
+                      <thead id="tableHead"></thead>
+                      <tbody id="tableBody">
+                        <tr>
+                          <td colspan="100" style="text-align:center; padding:40px; color:var(--muted);">
+                            데이터를 조회하면 이 영역에 상세 결과가 표시됩니다.
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <!-- KPI -->
+                <div class="kpi-section">
+                  <div class="kpi-card card">
+                    <div class="kpi-label">KPI #1</div>
+                    <div class="kpi-value" id="kpi1Value">-</div>
+                    <div class="kpi-change" id="kpi1Desc">마지막 조회 기준 주요 지표를 표시합니다.</div>
+                  </div>
+                  <div class="kpi-card card">
+                    <div class="kpi-label">KPI #2</div>
+                    <div class="kpi-value" id="kpi2Value">-</div>
+                    <div class="kpi-change" id="kpi2Desc">추후 경영지표와 연동 가능합니다.</div>
+                  </div>
+                  <div class="kpi-card card">
+                    <div class="kpi-label">KPI #3</div>
+                    <div class="kpi-value" id="kpi3Value">-</div>
+                    <div class="kpi-change" id="kpi3Desc">추후 확장 영역입니다.</div>
+                  </div>
+                </div>
+
+                <div class="sql-panel card">
+                  <div class="sql-header">생성된 SQL 쿼리</div>
+                  <div class="sql-code" id="sqlCode">아직 SQL이 생성되지 않았습니다.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- HISTORY PAGE -->
+          <div id="history-page" class="page-content">
+            <div class="content-header">
+              <div class="content-title">분석 히스토리</div>
+              <div class="breadcrumb">일지테크 관제탑 &gt; 구매관리 &gt; 분석 히스토리</div>
+            </div>
+            <div class="content-body">
+              <div class="history-panel card">
+                <div style="font-size:14px;margin-bottom:8px;font-weight:900;">최근 AI 분석 이력</div>
+                <div style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.6;">
+                  실제 PoC에서는 사용자·일자·질문·SQL·결과를 남겨서 재사용 가능한 분석 레시피로 활용할 수 있습니다.
+                </div>
+
+                <div class="table-shell">
+                  <table class="history-table">
+                    <thead>
+                      <tr>
+                        <th style="width:160px;">조회 시각</th>
+                        <th>질문</th>
+                        <th style="width:80px;">결과 건수</th>
+                        <th style="width:220px;">SQL (앞부분)</th>
+                      </tr>
+                    </thead>
+                    <tbody id="historyTableBody">
+                      <tr>
+                        <td colspan="4" style="text-align:center;padding:20px;color:var(--muted);">
+                          아직 분석 이력이 없습니다. 대시보드에서 먼저 질의를 실행해보세요.
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+              </div>
+            </div>
+          </div>
+
+          <!-- PO GENERATOR PAGE -->
+          <div id="po-page" class="page-content">
+            <div class="content-header">
+              <div class="content-title">발주서 생성기</div>
+              <div class="breadcrumb">일지테크 관제탑 &gt; 구매관리 &gt; 발주서 생성기</div>
+            </div>
+
+            <div class="content-body">
+              <div class="history-panel card">
+                <div style="font-size:14px;margin-bottom:8px;font-weight:900;">생산계획 기반 자동 발주서 생성</div>
+                <div style="font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.6;">
+                  선택한 기준일의 생산계획·BOM·재고·기준정보를 자동으로 계산하여
+                  공급업체별 발주서 PDF를 생성합니다. (서버: <b>C:/po_gen</b> 경로에 저장)
+                </div>
+
+                <div id="poResult" style="margin-top:16px; display:none;">
+                  <div style="font-size:14px;font-weight:900;margin-bottom:8px;">생성된 발주서 다운로드</div>
+                  <ul id="poResultList" style="font-size:13px; line-height:1.8;"></ul>
+                </div>
+
+                <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;flex-wrap:wrap;">
+                  <label for="dateInput" style="font-size:12px;color:var(--muted);font-weight:900;">발주 기준일</label>
+                  <input type="date" id="dateInput" class="text"/>
+                  <button class="btn-execute" id="generatePOButton" style="padding:10px 14px; font-size:13px;">
+                    발주서 생성
+                  </button>
+                </div>
+
+                <div id="poStatus" style="font-size:12px;color:var(--muted);">
+                  발주 기준일을 선택하고 &lt;발주서 생성&gt; 버튼을 누르면, 서버에서 PDF를 생성합니다.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 발주 우선순위 PAGE -->
+          <div id="priority-page" class="page-content">
+            <div class="content-header">
+              <div class="content-title">발주 우선순위</div>
+              <div class="breadcrumb">일지테크 관제탑 &gt; 구매관리 &gt; 발주 우선순위</div>
+            </div>
+
+            <div class="content-body">
+              <div class="history-panel card">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap;">
+                  <div>
+                    <div style="font-size:14px;margin-bottom:6px;font-weight:950;">금일 우선 발주 항목</div>
+                    <div style="font-size:12px;color:var(--muted);line-height:1.6;">
+                      (Mock) 부족/긴급/납기임박 기준으로 자동 랭킹된 리스트를 보여주는 영역입니다.
+                    </div>
+                  </div>
+                  <div class="toolbar">
+                    <select id="priorityPlant" class="select">
+                      <option value="ALL">플랜트: 전체</option>
+                      <option value="1010">1010 (경산)</option>
+                      <option value="1021">1021 (경주)</option>
+                      <option value="1022">1022 (경주)</option>
+                      <option value="1023">1023 (경주)</option>
+                      <option value="1024">1024 (경주)</option>
+                    </select>
+
+                    <select id="priorityLevel" class="select">
+                      <option value="ALL">우선순위: 전체</option>
+                      <option value="HIGH">상</option>
+                      <option value="MID">중</option>
+                      <option value="LOW">하</option>
+                    </select>
+                    <button id="priorityRefresh" class="mini-btn">새로고침(Mock)</button>
+                  </div>
+                </div>
+
+                <div class="table-shell" style="margin-top:12px;">
+                  <table class="history-table">
+                    <thead>
+                      <tr>
+                        <th style="width:64px;">순위</th>
+                        <th style="width:120px;">플랜트</th>
+                        <th style="width:160px;">자재코드</th>
+                        <th>자재명</th>
+                        <th style="width:120px;">공급업체</th>
+                        <th style="width:120px;">부족수량</th>
+                        <th style="width:120px;">납기</th>
+                        <th style="width:120px;">우선순위</th>
+                        <th style="width:140px;">사유</th>
+                      </tr>
+                    </thead>
+                    <tbody id="priorityTableBody"></tbody>
+                  </table>
+                </div>
+
+                <div style="margin-top:12px;font-size:12px;color:var(--muted);">
+                  ※ 다음 단계: 클릭한 항목 → 발주서 생성기로 전달 / 또는 해당 항목만 발주 PDF 생성 연결
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 구매오더 미결 관리 PAGE -->
+          <div id="po_open-page" class="page-content">
+            <div class="content-header">
+              <div class="content-title">구매오더 미결 관리</div>
+              <div class="breadcrumb">일지테크 관제탑 &gt; 구매관리 &gt; 구매오더 미결 관리</div>
+            </div>
+
+            <div class="content-body">
+              <div class="history-panel card">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap;">
+                  <div>
+                    <div style="font-size:14px;margin-bottom:6px;font-weight:950;">미결 상태 현황</div>
+                    <div style="font-size:12px;color:var(--muted);line-height:1.6;">
+                      (Mock) 발주 후 입고/검수/정산 등 단계 지연을 종합해서 “정상/확인필요/경고”로 표시합니다.
+                    </div>
+                  </div>
+                  <div class="toolbar">
+                    <select id="openStatus" class="select">
+                      <option value="ALL">상태: 전체</option>
+                      <option value="OK">정상</option>
+                      <option value="CHECK">확인필요</option>
+                      <option value="WARN">경고</option>
+                    </select>
+                    <input id="openSearch" class="text" type="text" placeholder="자재/업체/PO 검색 (Mock)" />
+                    <button id="openRefresh" class="mini-btn">새로고침(Mock)</button>
+                  </div>
+                </div>
+
+                <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;">
+                  <span class="status-pill status-ok" id="badge_ok">정상 0</span>
+                  <span class="status-pill status-check" id="badge_check">확인필요 0</span>
+                  <span class="status-pill status-warn" id="badge_warn">경고 0</span>
+                </div>
+
+                <div class="table-shell" style="margin-top:12px;">
+                  <table class="history-table">
+                    <thead>
+                      <tr>
+                        <th style="width:160px;">PO번호</th>
+                        <th style="width:120px;">플랜트</th>
+                        <th style="width:140px;">업체</th>
+                        <th>자재명</th>
+                        <th style="width:120px;">수량</th>
+                        <th style="width:140px;">납기</th>
+                        <th style="width:140px;">상태</th>
+                        <th style="width:140px;">지연</th>
+                      </tr>
+                    </thead>
+                    <tbody id="openTableBody"></tbody>
+                  </table>
+                </div>
+
+                <div style="margin-top:12px;font-size:12px;color:var(--muted);">
+                  ※ 다음 단계: 상태 클릭 → 담당자 알림/메일/협력사 독촉 템플릿/이력 저장 연동
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </main>
+      </div>
+    </div>
+  </div>
+
+  <!-- 정밀 분석 결과 슬라이드 -->
+  <div class="result-overlay" id="resultOverlay">
+    <div class="result-shell">
+      <div class="result-bar">
+        <div style="font-weight:900; letter-spacing:-0.2px;">정밀 분석 리포트 </div>
+        <button class="result-close" id="resultCloseBtn">닫기</button>
+      </div>
+      <div class="result-grid">
+        <div class="result-kpis">
+          <div class="result-card">
+            <div class="panel-subtitle" style="color:#fbbf24;">전체</div>
+            <div class="result-kpi-value" id="rk_total">-</div>
+            <div class="result-kpi-sub" id="rk_total_sub">-</div>
+          </div>
+          <div class="result-card">
+            <div class="panel-subtitle" style="color:#fbbf24;">미결(@5D@)</div>
+            <div class="result-kpi-value" id="rk_open">-</div>
+            <div class="result-kpi-sub" id="rk_open_sub">-</div>
+          </div>
+          <div class="result-card">
+            <div class="panel-subtitle" style="color:#fbbf24;">경고(≥14일)</div>
+            <div class="result-kpi-value" id="rk_warn">-</div>
+            <div class="result-kpi-sub" id="rk_warn_sub">-</div>
+          </div>
+          <div class="result-card">
+            <div class="panel-subtitle" style="color:#fbbf24;">확인필요(&lt;14일)</div>
+            <div class="result-kpi-value" id="rk_check">-</div>
+            <div class="result-kpi-sub" id="rk_check_sub">-</div>
+          </div>
+        </div>
+        <div class="result-card result-chart">
+          <div class="panel-subtitle">알림등급 분포</div>
+          <div class="chart-area">
+            <canvas id="resultChart"></canvas>
+          </div>
+        </div>
+        <div class="result-card result-table">
+          <div class="panel-subtitle" style="display:flex;justify-content:space-between;align-items:center; color: var(--muted);">
+            <span>결과 보고서</span>
+            <button class="result-close" id="savePdfBtn" style="padding:6px 10px;">PDF로 저장</button>
+          </div>
+          <div id="resultReport" style="font-size:12px; line-height:1.7; color:var(--text); white-space:pre-wrap; max-height:360px; overflow:auto;">-</div>
+        </div>
+        <div class="result-card result-table">
+          <div class="panel-subtitle" style="display:flex;justify-content:space-between;align-items:center;">
+            <span>결과 보고서</span>
+            <button class="result-close" id="savePdfBtn" style="padding:6px 10px;">PDF로 저장</button>
+          </div>
+          <div id="resultReport" style="font-size:12px; line-height:1.7; color:#e5e7eb; white-space:pre-wrap; max-height:360px; overflow:auto;">-</div>
+        </div>
+        <div class="result-subs" id="resultSubs"></div>
+        <div class="result-card result-table">
+          <div class="panel-subtitle">경고 리스트 (Top)</div>
+          <table>
+            <thead id="resultTableHead"></thead>
+            <tbody id="resultTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // =========================
+    //  SPLASH FLOW (기존 유지)
+    // =========================
+    const splashRoot   = document.getElementById("splashRoot");
+    const iljiFullLogo = document.getElementById("iljiFullLogo");
+
+    const logoAssemble = document.getElementById("logoAssemble");
+    const part1 = document.getElementById("part1");
+    const part2 = document.getElementById("part2");
+    const part3 = document.getElementById("part3");
+    const part4 = document.getElementById("part4");
+
+    const loginPanel = document.getElementById("loginPanel");
+    const loginBtn   = document.getElementById("loginBtn");
+    const loginMsg   = document.getElementById("loginMsg");
+
+    const dashboardRoot = document.getElementById("dashboardRoot");
+
+    function runSplash() {
+      iljiFullLogo.classList.add("play");
+
+      setTimeout(() => {
+        setTimeout(() => part4.classList.add("fly-in"), 100);
+        setTimeout(() => part1.classList.add("fly-in"), 260);
+        setTimeout(() => part3.classList.add("fly-in"), 420);
+        setTimeout(() => part2.classList.add("fly-in"), 560);
+      }, 1200);
+
+      setTimeout(() => { logoAssemble.classList.add("logo-zoom"); }, 2200);
+      setTimeout(() => { logoAssemble.classList.add("logo-fade"); }, 3800);
+
+      setTimeout(() => {
+        loginPanel.classList.add("show");
+        splashRoot.classList.add("login-bg");
+      }, 4100);
+    }
+
+    loginBtn.addEventListener("click", () => {
+      loginMsg.textContent = "";
+      const empNo = document.getElementById("empNo").value.trim();
+      const empPw = document.getElementById("empPw").value.trim();
+
+      if (empNo === "1111" && empPw === "1111") {
+        document.getElementById("splashRoot").classList.add("hidden");
+        dashboardRoot.classList.remove("hidden");
+        document.body.style.overflow = "auto";
+      } else {
+        loginMsg.textContent = "사번 또는 비밀번호가 올바르지 않습니다.";
+      }
+    });
+
+    // =========================
+    // DASHBOARD SCRIPT
+    // =========================
+    const API_BASE = "/api/v1";
+    // 구매오더 미결 정밀분석 보고서 기본 텍스트 (백엔드 report_text 없을 때 사용)
+    const PO_REPORT_TEXT = `11월 생성 구매오더 17,320건 중 미결은 1,670건(9.64%)이며, 이 중 386건(전체의 2.23%, 미결의 23.1%)이 ‘경고(14일 이상 미결)’로 즉시 조치가 필요하다.
+
+이번 데이터에서 미결 건의 비고(사유) 기재율이 0%로 확인되어, 미결 장기화의 원인을 데이터로 추적하기 어려운 구조이다. 비고가 다른 컬럼에 기록되는지(비고(아이템텍스트), 변경상세사유)를 점검하고, 미결 상태에서 사유 입력을 표준 프로세스로 강제할 필요가 있다.
+
+경고는 특정 생성자에 매우 편중(상위 4명 94.8%)되어 있어, 개인 성과 문제로 단정하기보다 담당 범위(플랜트/차종/공급업체) 편중 여부를 Drill-down으로 확인하는 것이 우선이다.
+
+플랜트 관점에서는 경산공장(본사)의 경고가 물량(257건)과 미결 대비 경고비율(43.6%) 모두에서 두드러져, 경산공장 관련 공급업체·차종 중심으로 원인 분석이 필요하다.
+
+일별 추이에서 2025-11-21에 미결이 1,127건 급증하는 특이점이 관찰되며, 이는 일괄 생성/업무 이벤트/상태 업데이트 지연 중 하나일 가능성이 크다. 해당 날짜의 플랜트/차종/공급업체/생성자 구성이 무엇인지 분해 분석하는 것을 1순위 후속 분석으로 권장한다`;
+
+    const $datetime = document.getElementById("datetime");
+    const $queryInput = document.getElementById("queryInput");
+    const $queryButton = document.getElementById("queryButton");
+    const agentToggle = document.getElementById("agentModeToggle");
+    const agentPanel = document.getElementById("agentPanel");
+    const agentStepsEl = document.getElementById("agentSteps");
+    const bodyEl = document.body;
+    const resultOverlay = document.getElementById("resultOverlay");
+    const resultCloseBtn = document.getElementById("resultCloseBtn");
+      const resultTableHead = document.getElementById("resultTableHead");
+      const resultTableBody = document.getElementById("resultTableBody");
+      const resultInsight = document.getElementById("resultInsight");
+      const resultReport = document.getElementById("resultReport");
+      const savePdfBtn = document.getElementById("savePdfBtn");
+      if (resultReport) {
+        resultReport.textContent = PO_REPORT_TEXT;
+      }
+      const chartPanelEl = document.querySelector(".chart-panel");
+    const $insightText = document.getElementById("insightText");
+    const $tableHead = document.getElementById("tableHead");
+    const $tableBody = document.getElementById("tableBody");
+  const $sqlCode = document.getElementById("sqlCode");
+  const $chatList = document.getElementById("chatList");
+
+  const $kpi1Value = document.getElementById("kpi1Value");
+  const $kpi1Desc = document.getElementById("kpi1Desc");
+  const dateInput = document.getElementById("dateInput");
+  const generatePOButton = document.getElementById("generatePOButton");
+  // 발주서 PDF 생성용 이미지 경로(여러 위치 시도)
+  const PO_IMAGE_PATHS = [
+    "./KakaoTalk_20251219_140320864.png",
+    "../KakaoTalk_20251219_140320864.png"
+  ];
+
+    let agentMode = false;
+    let historyList = [];
+    let rowElementsByKey = {};
+    let myChartInstance = null;
+    let resultChartInstance = null;
+    let subChartInstances = [];
+
+    const priorityMock = [
+      { rank: 1, plant: "1010", mat: "MAT-1000123", name: "브라켓 A", vendor: "협력사A", shortage: 120, due: "오늘", level: "상", reason: "납기임박" },
+      { rank: 2, plant: "1021", mat: "MAT-1000456", name: "볼트 M8", vendor: "협력사B", shortage: 500, due: "D+1", level: "상", reason: "안전재고 미만" },
+      { rank: 3, plant: "1022", mat: "MAT-1000789", name: "하네스", vendor: "협력사C", shortage: 40, due: "D+2", level: "중", reason: "수요급증" },
+      { rank: 4, plant: "1023", mat: "MAT-1000111", name: "클립", vendor: "협력사D", shortage: 300, due: "D+3", level: "하", reason: "예상부족" },
+      { rank: 5, plant: "1024", mat: "MAT-1000999", name: "패드", vendor: "협력사E", shortage: 80, due: "D+2", level: "중", reason: "예상부족" },
+    ];
+
+    const openMock = [
+      { po: "4500001234", plant: "1010", vendor: "협력사A", item: "브라켓 A", qty: 120, due: "2025-12-17", status: "경고",     delay: "1일 지연" },
+      { po: "4500001288", plant: "1021", vendor: "협력사B", item: "볼트 M8",  qty: 500, due: "2025-12-18", status: "확인필요", delay: "-" },
+      { po: "4500001301", plant: "1022", vendor: "협력사C", item: "하네스",    qty: 40,  due: "2025-12-16", status: "경고",     delay: "2일 지연" },
+      { po: "4500001310", plant: "1023", vendor: "협력사D", item: "클립",      qty: 300, due: "2025-12-19", status: "확인필요", delay: "-" },
+      { po: "4500001402", plant: "1024", vendor: "협력사E", item: "패드",      qty: 60,  due: "2025-12-15", status: "정상",     delay: "-" },
+    ];
+
+    function setActivePage(pageId) {
+      document.querySelectorAll(".page-content").forEach(p => p.classList.remove("active"));
+      const target = document.getElementById(`${pageId}-page`);
+      if (target) target.classList.add("active");
+    }
+
+    document.querySelectorAll(".nav-item[data-page]").forEach(item => {
+      item.addEventListener("click", () => {
+        document.querySelectorAll(".nav-item[data-page]").forEach(n => n.classList.remove("active"));
+        item.classList.add("active");
+        setActivePage(item.dataset.page);
+
+        if (item.dataset.page === "priority") renderPriority();
+        if (item.dataset.page === "po_open") renderOpenPO();
+      });
+    });
+
+    document.querySelectorAll(".quick-query").forEach(item => {
+      item.addEventListener("click", () => {
+        const tmpl = item.dataset.template || "";
+        $queryInput.value = tmpl;
+        $queryInput.focus();
+      });
+    });
+
+    function setChartPanelVisible(show){
+      if (!chartPanelEl) return;
+      if (!chartPanelEl.dataset.defaultDisplay){
+        chartPanelEl.dataset.defaultDisplay = getComputedStyle(chartPanelEl).display || "block";
+      }
+      chartPanelEl.style.display = show ? chartPanelEl.dataset.defaultDisplay : "none";
+    }
+
+    function updateDateTime() {
+      const now = new Date();
+      $datetime.textContent = now.toLocaleString("ko-KR");
+    }
+    updateDateTime();
+    setInterval(updateDateTime, 1000 * 30);
+
+    function appendChatMessage(role, text) {
+      const wrapper = document.createElement("div");
+      wrapper.className = `chat-message ${role}`;
+
+      const inner = document.createElement("div");
+
+      const bubble = document.createElement("div");
+      bubble.className = `chat-bubble ${role}`;
+      bubble.textContent = text;
+
+      const meta = document.createElement("div");
+      meta.className = "chat-meta";
+      const now = new Date();
+      meta.textContent = now.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
+
+      inner.appendChild(bubble);
+      inner.appendChild(meta);
+      wrapper.appendChild(inner);
+
+      $chatList.appendChild(wrapper);
+      $chatList.scrollTop = $chatList.scrollHeight;
+    }
+
+    function initAgentSteps() {
+      if (!agentStepsEl) return;
+      agentStepsEl.innerHTML = "";
+      const steps = [
+        "질문 해석 및 의도 파악",
+        "관련 데이터셋 식별",
+        "세부 분석 플랜 수립",
+        "SQL 실행 및 시각화 구성",
+        "최종 인사이트 정리",
+      ];
+      steps.forEach((label, idx) => {
+        const row = document.createElement("div");
+        row.className = "agent-step";
+        row.innerHTML = `
+          <div class="agent-step-status" id="agentStepStatus${idx}"></div>
+          <div class="agent-step-label">${label}</div>
+          <div class="agent-step-desc" id="agentStepDesc${idx}">대기 중...</div>
+        `;
+        agentStepsEl.appendChild(row);
+      });
+    }
+
+    function markAgentStep(idx, status, desc) {
+      if (!agentMode) return;
+      const statusEl = document.getElementById(`agentStepStatus${idx}`);
+      const descEl = document.getElementById(`agentStepDesc${idx}`);
+      if (!statusEl || !descEl) return;
+      statusEl.classList.remove("running", "done");
+      if (status === "running") statusEl.classList.add("running");
+      if (status === "done") statusEl.classList.add("done");
+      if (desc) descEl.textContent = desc;
+    }
+
+    if (agentToggle) {
+      agentToggle.addEventListener("change", () => {
+        agentMode = agentToggle.checked;
+        if (agentMode) {
+          agentPanel.style.display = "block";
+          initAgentSteps();
+          bodyEl.classList.add("agent-dark");
+        } else {
+          agentPanel.style.display = "none";
+          bodyEl.classList.remove("agent-dark");
+        }
+      });
+    }
+
+    function isPoOpenQuery(q) {
+      const lower = String(q || "").toLowerCase();
+      return lower.includes("구매오더") || lower.includes("미결") || lower.includes("po open") || lower.includes("@5d@");
+    }
+
+    function showResultOverlay() {
+      if (resultOverlay) {
+        resultOverlay.classList.add("show");
+        resultOverlay.style.display = "block";
+        resultOverlay.style.opacity = "1";
+        resultOverlay.style.transform = "translateY(0)";
+      }
+    }
+    function hideResultOverlay() {
+      if (resultOverlay) resultOverlay.classList.remove("show");
+      if (resultOverlay) {
+        resultOverlay.style.opacity = "";
+        resultOverlay.style.transform = "";
+        resultOverlay.style.display = "none";
+      }
+      document.querySelectorAll(".insight-panel, .chart-panel, .table-panel, #subAnalysisSection, .sql-panel").forEach(el => {
+        if (!el) return;
+        if (el.dataset.defaultDisplay) {
+          el.style.display = el.dataset.defaultDisplay;
+        } else {
+          el.style.display = "";
+        }
+      });
+    }
+    if (resultCloseBtn) {
+      resultCloseBtn.addEventListener("click", hideResultOverlay);
+    }
+
+    function renderResultTable(rows) {
+      resultTableHead.innerHTML = "";
+      resultTableBody.innerHTML = "";
+      if (!rows || rows.length === 0) {
+        const tr = document.createElement("tr");
+        const td = document.createElement("td");
+        td.colSpan = 5;
+        td.style.padding = "12px";
+        td.style.textAlign = "center";
+        td.textContent = "데이터 없음";
+        tr.appendChild(td);
+        resultTableBody.appendChild(tr);
+        return;
+      }
+      const keys = Object.keys(rows[0]);
+      const headTr = document.createElement("tr");
+      keys.forEach(k => {
+        const th = document.createElement("th");
+        th.textContent = k;
+        headTr.appendChild(th);
+      });
+      resultTableHead.appendChild(headTr);
+      rows.slice(0, 20).forEach(r => {
+        const tr = document.createElement("tr");
+        keys.forEach(k => {
+          const td = document.createElement("td");
+          const v = r[k];
+          td.textContent = typeof v === "number" ? v.toLocaleString() : v;
+          tr.appendChild(td);
+        });
+        resultTableBody.appendChild(tr);
+      });
+    }
+
+    function renderResultInsight(text) {
+      if (!resultInsight) return;
+      resultInsight.textContent = text || "인사이트가 아직 생성되지 않았습니다.";
+    }
+
+    function renderResultReport(text) {
+      if (!resultReport) return;
+      const cleaned = (text || "").trim();
+      resultReport.textContent = cleaned || PO_REPORT_TEXT;
+    }
+
+    function renderResultChart(chartSpec, rows) {
+      const ctx = document.getElementById("resultChart")?.getContext("2d");
+      if (!ctx) return;
+      if (resultChartInstance) {
+        resultChartInstance.destroy();
+        resultChartInstance = null;
+      }
+      if (!chartSpec || !rows || rows.length === 0) return;
+      const labels = rows.map(r => r[chartSpec.x_field]);
+      const data = rows.map(r => Number(r[chartSpec.y_field]) || 0);
+      const isDark = document.body.classList.contains("agent-dark");
+      const axisColor = isDark ? "#e5e7eb" : "#1f2937";
+      const gridColor = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)";
+      resultChartInstance = new Chart(ctx, {
+        type: chartSpec.type || "bar",
+        data: {
+          labels,
+          datasets: [{
+            label: chartSpec.title || "분석 결과",
+            data,
+            backgroundColor: chartSpec.type === "line"
+              ? "rgba(255,149,64,0.2)"
+              : (isDark ? "rgba(255,149,64,0.7)" : "rgba(0,122,255,0.7)"),
+            borderColor: isDark ? "#f59e0b" : "#0a84ff",
+            fill: chartSpec.type === "line",
+            tension: 0.35,
+            borderRadius: 12
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { grid: { display: false }, ticks: { color: axisColor } },
+            y: { beginAtZero: true, grid: { color: gridColor }, ticks: { color: axisColor } }
+          }
+        }
+      });
+    }
+
+    function renderResultSubs(subs = []) {
+      const container = document.getElementById("resultSubs");
+      if (!container) return;
+      // destroy old charts
+      subChartInstances.forEach(inst => { try { inst.destroy(); } catch(e){} });
+      subChartInstances = [];
+      container.innerHTML = "";
+      const isDark = document.body.classList.contains("agent-dark");
+      const axisColor = isDark ? "#e5e7eb" : "#1f2937";
+      const gridColor = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)";
+      subs.forEach((sub, idx) => {
+        if (!sub || !sub.chart_spec || !sub.rows) return;
+        const card = document.createElement("div");
+        card.className = "result-card result-sub";
+        const title = document.createElement("div");
+        title.className = "panel-subtitle";
+        title.textContent = sub.name || `서브 분석 ${idx+1}`;
+        const area = document.createElement("div");
+        area.className = "chart-area";
+        const canvas = document.createElement("canvas");
+        const cid = `resultSub_${idx}`;
+        canvas.id = cid;
+        area.appendChild(canvas);
+        card.appendChild(title);
+        card.appendChild(area);
+        container.appendChild(card);
+
+        const ctx = canvas.getContext("2d");
+        const type = sub.chart_spec.type || "bar";
+        let chart;
+        if (type === "scatter") {
+          const dataPts = sub.rows.map(r => ({ x: Number(r[sub.chart_spec.x_field]) || 0, y: Number(r[sub.chart_spec.y_field]) || 0 }));
+          chart = new Chart(ctx, {
+            type: "scatter",
+            data: { datasets: [{ data: dataPts, backgroundColor: isDark ? "rgba(255,149,64,0.7)" : "rgba(0,122,255,0.7)" }] },
+            options: { responsive:true, maintainAspectRatio:false, scales:{ x:{ grid:{ color:gridColor }, ticks:{ color:axisColor } }, y:{ grid:{ color:gridColor }, ticks:{ color:axisColor } } }, plugins:{ legend:{ display:false } } }
+          });
+        } else {
+          const labels = sub.rows.map(r => r[sub.chart_spec.x_field]);
+          const data = sub.rows.map(r => Number(r[sub.chart_spec.y_field]) || 0);
+          const baseColor = isDark ? "#f59e0b" : "#0a84ff";
+          chart = new Chart(ctx, {
+            type,
+            data: {
+              labels,
+              datasets: [{
+                label: sub.chart_spec.title || sub.name || "분석",
+                data,
+                backgroundColor: type === "line" ? "rgba(245,158,11,0.2)" : (isDark ? "rgba(245,158,11,0.75)" : "rgba(10,132,255,0.75)"),
+                borderColor: baseColor,
+                fill: type === "line",
+                tension: 0.35,
+                borderRadius: type === "bar" ? 10 : undefined
+              }]
+            },
+            options: {
+              responsive:true,
+              maintainAspectRatio:false,
+              plugins:{ legend:{ display:false } },
+              scales:{ x:{ grid:{ display:false }, ticks:{ color:axisColor } }, y:{ grid:{ color:gridColor }, ticks:{ color:axisColor, callback:v=>v.toLocaleString() } } }
+            }
+          });
+        }
+        subChartInstances.push(chart);
+      });
+    }
+
+    function showSkeleton() {
+      if (myChartInstance) { myChartInstance.destroy(); myChartInstance = null; }
+      const canvas = document.getElementById('myChart');
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      ctx.font = "14px ui-sans-serif";
+      ctx.fillStyle = "#6e6e73";
+      ctx.textAlign = "center";
+      ctx.fillText("데이터 분석 중...", canvas.width / 2, canvas.height / 2);
+
+      $tableHead.innerHTML = "";
+      $tableBody.innerHTML = "";
+      for (let i = 0; i < 4; i++) {
+        const tr = document.createElement("tr");
+        const td = document.createElement("td");
+        td.colSpan = 4;
+        const sk = document.createElement("div");
+        sk.className = "skeleton skeleton-row";
+        td.appendChild(sk);
+        tr.appendChild(td);
+        $tableBody.appendChild(tr);
+      }
+    }
+
+    function clearActiveRowHighlight() {
+      Object.values(rowElementsByKey).forEach(el => el.classList.remove("active-row"));
+      if (myChartInstance) {
+        myChartInstance.setActiveElements([]);
+        myChartInstance.update();
+      }
+    }
+
+    function highlightByKey(key) {
+      clearActiveRowHighlight();
+      const row = rowElementsByKey[String(key)];
+      if (row) row.classList.add("active-row");
+
+      if (myChartInstance && myChartInstance.data.labels) {
+        const index = myChartInstance.data.labels.findIndex(l => String(l) === String(key));
+        if (index !== -1) {
+          myChartInstance.setActiveElements([{ datasetIndex: 0, index }]);
+          myChartInstance.update();
+        }
+      }
+    }
+
+    function renderTable(chartSpec, rows) {
+      $tableHead.innerHTML = "";
+      $tableBody.innerHTML = "";
+      rowElementsByKey = {};
+
+      if (!rows || rows.length === 0) {
+        const tr = document.createElement("tr");
+        const td = document.createElement("td");
+        td.colSpan = 1;
+        td.style.textAlign = "center";
+        td.style.padding = "40px";
+        td.style.color = "#6e6e73";
+        td.textContent = "조회 결과가 없습니다.";
+        tr.appendChild(td);
+        $tableBody.appendChild(tr);
+        return;
+      }
+
+      const firstRow = rows[0];
+      const keys = Object.keys(firstRow);
+
+      const headTr = document.createElement("tr");
+      keys.forEach(k => {
+        const th = document.createElement("th");
+        th.textContent = k;
+        headTr.appendChild(th);
+      });
+      $tableHead.appendChild(headTr);
+
+      rows.forEach(row => {
+        const tr = document.createElement("tr");
+        keys.forEach(k => {
+          const td = document.createElement("td");
+          const val = row[k];
+
+          if (typeof val === "number") {
+            td.textContent = val.toLocaleString();
+            td.classList.add("td-right");
+          } else {
+            td.textContent = val;
+          }
+
+          const keyLower = String(k).toLowerCase();
+          if (keyLower.includes("po") || keyLower.includes("번호") || keyLower.includes("code") || keyLower.includes("코드")) {
+            td.classList.add("td-mono");
+          }
+
+          tr.appendChild(td);
+        });
+
+        if (chartSpec && chartSpec.x_field && row[chartSpec.x_field] != null) {
+          const key = String(row[chartSpec.x_field]);
+          rowElementsByKey[key] = tr;
+          tr.dataset.key = key;
+
+          tr.addEventListener("mouseenter", () => highlightByKey(key));
+          tr.addEventListener("mouseleave", () => clearActiveRowHighlight());
+        }
+
+        $tableBody.appendChild(tr);
+      });
+    }
+
+    function renderChart(chartSpec, rows) {
+      const canvas = document.getElementById('myChart');
+      const ctx = canvas.getContext('2d');
+
+      if (!chartSpec || !rows || rows.length === 0) {
+        if (myChartInstance) { myChartInstance.destroy(); myChartInstance = null; }
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.font = "14px ui-sans-serif";
+        ctx.fillStyle = "#6e6e73";
+        ctx.textAlign = "center";
+        ctx.fillText("차트 데이터가 없습니다.", canvas.width / 2, canvas.height / 2);
+        return;
+      }
+
+      const xField = chartSpec.x_field;
+      const yField = chartSpec.y_field;
+      const title = chartSpec.title || "분석 결과";
+
+      const labels = rows.map(r => r[xField]);
+      const dataValues = rows.map(r => Number(r[yField]) || 0);
+
+      if (myChartInstance) myChartInstance.destroy();
+
+      const isDark = document.body.classList.contains("agent-dark");
+      const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+      if (isDark) {
+        gradient.addColorStop(0, 'rgba(255,149,64,0.9)');
+        gradient.addColorStop(1, 'rgba(255,149,64,0.18)');
+      } else {
+        gradient.addColorStop(0, 'rgba(31, 157, 85, 0.9)');
+        gradient.addColorStop(1, 'rgba(31, 157, 85, 0.2)');
+      }
+      const axisColor = isDark ? "#e5e7eb" : "#1d1d1f";
+      const gridColor = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)";
+
+      myChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{
+            label: title,
+            data: dataValues,
+            backgroundColor: gradient,
+            borderColor: isDark ? '#d35400' : '#1f9d55',
+            borderWidth: 1,
+            borderRadius: 10,
+            barPercentage: 0.65,
+            hoverBackgroundColor: isDark ? '#d35400' : '#27ae60'
+          }]
+        },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: true, position: 'top' },
+              tooltip: {
+                backgroundColor: isDark ? 'rgba(15,23,42,0.92)' : 'rgba(29, 29, 31, 0.92)',
+                callbacks: {
+                  label: function(context) {
+                    let label = context.dataset.label || '';
+                    if (label) label += ': ';
+                    if (context.parsed.y !== null) label += context.parsed.y.toLocaleString();
+                  return label;
+                }
+              }
+            }
+          },
+          animation: { duration: 700 },
+          scales: {
+            y: {
+              beginAtZero: true,
+              grid: { color: gridColor },
+              ticks: { color: axisColor, callback: v => v.toLocaleString() }
+            },
+            x: { grid: { display: false }, ticks: { color: axisColor } }
+          },
+          onHover: (event, elements) => {
+            if (elements && elements.length > 0) {
+              const index = elements[0].index;
+              const label = labels[index];
+              Object.values(rowElementsByKey).forEach(el => el.classList.remove("active-row"));
+              const row = rowElementsByKey[String(label)];
+              if (row) row.classList.add("active-row");
+            } else {
+              Object.values(rowElementsByKey).forEach(el => el.classList.remove("active-row"));
+            }
+          }
+        }
+      });
+    }
+
+    function renderSQL(sql) { $sqlCode.textContent = sql ? sql : "아직 SQL이 생성되지 않았습니다."; }
+    function renderInsight(insight) { $insightText.textContent = insight ? insight : "이번 질의에 대한 인사이트 텍스트가 아직 정의되지 않았습니다."; }
+    function renderKpi(rowCount, question) {
+      if (rowCount != null) {
+        $kpi1Value.textContent = rowCount.toLocaleString() + " 건";
+        $kpi1Desc.textContent = `마지막 질의 결과 건수 (질문: ${question.length > 12 ? question.slice(0, 12) + "..." : question})`;
+      }
+    }
+
+    function renderHistory() {
+      const $tbody = document.getElementById("historyTableBody");
+      $tbody.innerHTML = "";
+
+      if (historyList.length === 0) {
+        const tr = document.createElement("tr");
+        const td = document.createElement("td");
+        td.colSpan = 4;
+        td.style.textAlign = "center";
+        td.style.padding = "20px";
+        td.style.color = "#6e6e73";
+        td.textContent = "아직 분석 이력이 없습니다. 대시보드에서 먼저 질의를 실행해보세요.";
+        tr.appendChild(td);
+        $tbody.appendChild(tr);
+        return;
+      }
+
+      historyList.forEach(item => {
+        const tr = document.createElement("tr");
+
+        const tdTime = document.createElement("td");
+        tdTime.textContent = item.timestamp;
+
+        const tdQ = document.createElement("td");
+        tdQ.textContent = item.question;
+
+        const tdCnt = document.createElement("td");
+        tdCnt.className = "td-right";
+        tdCnt.textContent = (item.row_count ?? 0).toLocaleString();
+
+        const tdSql = document.createElement("td");
+        tdSql.classList.add("td-mono");
+        const sql = item.sql || "";
+        tdSql.textContent = sql.length > 60 ? sql.slice(0, 60) + "..." : sql;
+
+        tr.appendChild(tdTime);
+        tr.appendChild(tdQ);
+        tr.appendChild(tdCnt);
+        tr.appendChild(tdSql);
+        $tbody.appendChild(tr);
+      });
+    }
+
+    async function callBackend(question) {
+      const payload = { question };
+      const res = await axios.post(`${API_BASE}/ask`, payload);
+      return res.data;
+    }
+    const sleep = (ms) => new Promise(res => setTimeout(res, ms));
+
+    async function handleQuery() {
+      const question = $queryInput.value.trim();
+      if (!question) { alert("질문을 입력해 주세요."); return; }
+
+      const poQuery = agentMode && isPoOpenQuery(question);
+
+      appendChatMessage("user", question);
+
+      $queryButton.disabled = true;
+      const originalText = $queryButton.textContent;
+      $queryButton.textContent = "분석 중...";
+
+      showSkeleton();
+      hideResultOverlay();
+
+      // 메인 영역 노출/숨김 제어
+      const mainBlocks = Array.from(document.querySelectorAll(".insight-panel, .chart-panel, .table-panel, #subAnalysisSection, .sql-panel"));
+      const toggleMainBlocks = (show) => {
+        mainBlocks.forEach(el => {
+          if (!el) return;
+          if (!el.dataset.defaultDisplay) el.dataset.defaultDisplay = getComputedStyle(el).display || "block";
+          el.style.display = show ? el.dataset.defaultDisplay : "none";
+        });
+      };
+
+      try {
+        if (agentMode) {
+          agentPanel.style.display = "block";
+          initAgentSteps();
+          markAgentStep(0, "running", "질문을 분석하는 중입니다...");
+          if (poQuery) {
+            bodyEl.classList.add("agent-dark");
+            toggleMainBlocks(false);
+          } else {
+            toggleMainBlocks(true);
+          }
+          setChartPanelVisible(false);
+        } else {
+          agentPanel.style.display = "none";
+          bodyEl.classList.remove("agent-dark");
+          toggleMainBlocks(true);
+          setChartPanelVisible(true);
+        }
+
+        // 정밀모드 + PO 미결 관련이면 “가짜” 데이터로 연출
+        let data;
+        if (poQuery) {
+          data = {
+            question,
+            insight:
+`11월 생성분 17,320건 중 미결 1,670건(9.64%), 그 중 경고(≥14일) 386건(미결의 23.1%). 미결 비고 기재율 0%로 사유 추적 불가, 11/21에 미결 스파이크(1,127건) 발생, 경산공장·MQ4 차종·상위 4명 생성자에 경고 편중.`,
+            chart_spec: { type: "bar", x_field: "알림등급", y_field: "건수", title: "알림등급 분포" },
+            rows: [
+              { 알림등급: "정상", 건수: 15650 },
+              { 알림등급: "확인필요", 건수: 1284 },
+              { 알림등급: "경고", 건수: 386 }
+            ],
+            sub_analyses: [
+              {
+                name: "일별 미결 추이",
+                chart_spec: { type: "line", x_field: "일자", y_field: "건수", title: "일별 미결" },
+                rows: [
+                  { 일자: "11-01", 건수: 240 },
+                  { 일자: "11-05", 건수: 310 },
+                  { 일자: "11-10", 건수: 420 },
+                  { 일자: "11-15", 건수: 490 },
+                  { 일자: "11-21", 건수: 1127 },
+                  { 일자: "11-25", 건수: 520 },
+                  { 일자: "11-30", 건수: 1670 }
+                ]
+              },
+              {
+                name: "일별 경고 추이",
+                chart_spec: { type: "line", x_field: "일자", y_field: "경고건수", title: "일별 경고" },
+                rows: [
+                  { 일자: "11-01", 경고건수: 180 },
+                  { 일자: "11-05", 경고건수: 210 },
+                  { 일자: "11-10", 경고건수: 320 },
+                  { 일자: "11-15", 경고건수: 360 },
+                  { 일자: "11-21", 경고건수: 360 },
+                  { 일자: "11-25", 경고건수: 380 },
+                  { 일자: "11-30", 경고건수: 386 }
+                ]
+              },
+              {
+                name: "경과일수 분포",
+                chart_spec: { type: "bar", x_field: "구간", y_field: "건수", title: "경과일수 히스토그램" },
+                rows: [
+                  { 구간: "0-5", 건수: 520 },
+                  { 구간: "6-10", 건수: 480 },
+                  { 구간: "11-13", 건수: 274 },
+                  { 구간: "14-20", 건수: 260 },
+                  { 구간: "21-29", 건수: 136 }
+                ]
+              },
+              {
+                name: "플랜트별 경고 Top",
+                chart_spec: { type: "bar", x_field: "플랜트", y_field: "경고건수", title: "플랜트별 경고" },
+                rows: [
+                  { 플랜트: "경산공장", 경고건수: 257 },
+                  { 플랜트: "경주1공장", 경고건수: 57 },
+                  { 플랜트: "경주3공장", 경고건수: 51 },
+                  { 플랜트: "경주4공장", 경고건수: 11 },
+                  { 플랜트: "경주2공장", 경고건수: 10 }
+                ]
+              },
+              {
+                name: "생성자별 경고 파레토",
+                chart_spec: { type: "bar", x_field: "생성자", y_field: "경고건수", title: "생성자별 경고" },
+                rows: [
+                  { 생성자: "윤주임", 경고건수: 192 },
+                  { 생성자: "장주임", 경고건수: 68 },
+                  { 생성자: "조주임", 경고건수: 57 },
+                  { 생성자: "류주임", 경고건수: 49 },
+                  { 생성자: "기타",   경고건수: 20 }
+                ]
+              },
+              {
+                name: "대표차종별 경고 Top",
+                chart_spec: { type: "bar", x_field: "차종", y_field: "경고건수", title: "차종별 경고" },
+                rows: [
+                  { 차종: "CN7", 경고건수: 86 },
+                  { 차종: "MQ4", 경고건수: 51 },
+                  { 차종: "COMM.", 경고건수: 40 },
+                  { 차종: "LX3", 경고건수: 34 },
+                  { 차종: "MQ4 HEV", 경고건수: 32 }
+                ]
+              },
+              {
+                name: "공급업체 리스크 매트릭스",
+                chart_spec: { type: "scatter", x_field: "미결건수", y_field: "경고비율", title: "공급업체 리스크" },
+                rows: [
+                  { 업체: "A업체", 미결건수: 120, 경고비율: 0.42 },
+                  { 업체: "B업체", 미결건수: 80,  경고비율: 0.28 },
+                  { 업체: "C업체", 미결건수: 55,  경고비율: 0.10 },
+                  { 업체: "D업체", 미결건수: 35,  경고비율: 0.32 },
+                  { 업체: "E업체", 미결건수: 18,  경고비율: 0.95 }
+                ]
+              }
+            ],
+            table_rows: [
+              { 플랜트명:"경산공장", 대표차종:"MQ4", 구매오더:"4,600,002,408", 구매오더품목:"40", 공급업체명:"디에이치(주)", 자재번호:"64312-KL000", 내역:"PNL-DASH UPR", 생성일:"2025-11-01", 경과일수:29, 납품요청일:"2025-11-12", 오더수량:9000 },
+              { 플랜트명:"경산공장", 대표차종:"MQ4", 구매오더:"4,600,002,410", 구매오더품목:"40", 공급업체명:"디에이치(주)", 자재번호:"64312-KL000", 내역:"PNL-DASH UPR", 생성일:"2025-11-01", 경과일수:29, 납품요청일:"2025-11-26", 오더수량:9000 },
+              { 플랜트명:"경산공장", 대표차종:"CN7", 구매오더:"4,600,002,418", 구매오더품목:"10", 공급업체명:"성심정밀(주)", 자재번호:"64658-AA000", 내역:"BRKT-SUB FRAME MTG RR,LH", 생성일:"2025-11-01", 경과일수:29, 납품요청일:"2025-11-19", 오더수량:9000 },
+              { 플랜트명:"경산공장", 대표차종:"CN7", 구매오더:"4,600,002,416", 구매오더품목:"30", 공급업체명:"정하이텍", 자재번호:"64542-AA500", 내역:"COVER-S/ABS HSG,RH", 생성일:"2025-11-01", 경과일수:29, 납품요청일:"2025-11-12", 오더수량:9000 },
+              { 플랜트명:"경산공장", 대표차종:"ME", 구매오더:"4,600,002,408", 구매오더품목:"70", 공급업체명:"디에이치(주)", 자재번호:"64314-GO000", 내역:"PNL-DASH LWR", 생성일:"2025-11-01", 경과일수:29, 납품요청일:"2025-11-12", 오더수량:9000 },
+              { 플랜트명:"경산공장", 대표차종:"ME", 구매오더:"4,600,002,410", 구매오더품목:"70", 공급업체명:"디에이치(주)", 자재번호:"64314-GO000", 내역:"PNL-DASH LWR", 생성일:"2025-11-01", 경과일수:29, 납품요청일:"2025-11-26", 오더수량:9000 },
+              { 플랜트명:"경산공장", 대표차종:"MQ4", 구매오더:"4,600,002,425", 구매오더품목:"50", 공급업체명:"신영하이테크", 자재번호:"65222-P2000", 내역:"MEMBER-CTR FLOOR SIDE,RH", 생성일:"2025-11-01", 경과일수:29, 납품요청일:"2025-11-19", 오더수량:9000 },
+              { 플랜트명:"경산공장", 대표차종:"MQ4 HEV", 구매오더:"4,600,002,430", 구매오더품목:"20", 공급업체명:"신영하이테크", 자재번호:"65152-P2000", 내역:"MEMBER-FR SEAT CROSS,LH", 생성일:"2025-11-01", 경과일수:29, 납품요청일:"2025-11-20", 오더수량:9000 },
+              { 플랜트명:"경산공장", 대표차종:"COMM.", 구매오더:"4,600,002,450", 구매오더품목:"30", 공급업체명:"OO머티리얼", 자재번호:"77004-P9010", 내역:"MEMBER-CTR", 생성일:"2025-11-02", 경과일수:28, 납품요청일:"2025-11-21", 오더수량:8000 },
+              { 플랜트명:"경산공장", 대표차종:"CN7", 구매오더:"4,600,002,455", 구매오더품목:"20", 공급업체명:"성심정밀(주)", 자재번호:"64668-AA000", 내역:"BRKT-SUB FRAME MTG RR,RH", 생성일:"2025-11-02", 경과일수:28, 납품요청일:"2025-11-21", 오더수량:8000 }
+            ],
+            kpis: {
+              total_cnt: 17320,
+              done_cnt: 15650,
+              open_cnt: 1670,
+              warn_cnt: 386,
+              check_cnt: 1284,
+              open_rate_pct: 9.64,
+              warn_rate_open_pct: 23.11,
+              check_rate_open_pct: 76.89
+            }
+          };
+        } else {
+          data = await callBackend(question);
+        }
+
+      if (agentMode) {
+        markAgentStep(0, "done", "질문 의도 파악 완료");
+        markAgentStep(1, "running", "관련 테이블 식별 중...");
+        await sleep(2200);
+        markAgentStep(1, "done", "핵심 테이블 자동 식별 완료");
+        markAgentStep(2, "running", "메인·서브 분석 플랜 수립 중...");
+        await sleep(2400);
+        markAgentStep(2, "done", "플랜 수립 완료");
+        markAgentStep(3, "running", "SQL 실행 및 시각화 구성 중...");
+      }
+
+        renderInsight(data.insight);
+        renderChart(data.chart_spec, data.rows);
+        renderTable(data.chart_spec, data.rows);
+        renderSQL(data.sql);
+        renderKpi(data.row_count, data.question || question);
+
+        // 정밀분석 오버레이도 함께 채운다 (다만 슬라이드는 마지막에 노출)
+      if (poQuery) {
+        renderResultInsight(data.insight);
+        renderResultReport(data.report_text);
+        renderResultChart(data.chart_spec, data.rows);
+        renderResultTable(data.table_rows || data.rows);
+          renderResultSubs(data.sub_analyses || []);
+          if (data.kpis) {
+            const k = data.kpis;
+            const setText = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+            setText("rk_total", `${(k.total_cnt ?? 0).toLocaleString()} 건`);
+            setText("rk_total_sub", `완료 ${ (k.done_cnt ?? 0).toLocaleString() } · 정상 ${(100 - (k.open_rate_pct ?? 0)).toFixed(2)}%`);
+            setText("rk_open", `${(k.open_cnt ?? 0).toLocaleString()} 건`);
+            setText("rk_open_sub", `전체 대비 ${(k.open_rate_pct ?? 0).toFixed(2)}%`);
+            setText("rk_warn", `${(k.warn_cnt ?? 0).toLocaleString()} 건`);
+            setText("rk_warn_sub", `미결 대비 ${(k.warn_rate_open_pct ?? 0).toFixed(2)}%`);
+            setText("rk_check", `${(k.check_cnt ?? 0).toLocaleString()} 건`);
+            setText("rk_check_sub", `미결 대비 ${(k.check_rate_open_pct ?? 0).toFixed(2)}%`);
+          }
+        }
+
+        if (agentMode) {
+          const chartCount = 1 + (data.sub_analyses || []).length;
+          markAgentStep(3, "done", `차트 ${chartCount}건, 테이블 1건 구성 완료`);
+          await sleep(2000);
+          markAgentStep(4, "done", data.insight ? "데이터 기반 인사이트 정리 완료" : "수치 중심 분석 완료");
+          if (poQuery) {
+            showResultOverlay();
+          } else {
+            toggleMainBlocks(true);
+          }
+          setChartPanelVisible(false);
+        }
+
+        const aiText = data.insight ? data.insight : `SQL이 생성되었고, ${data.row_count ?? 0}건이 조회되었습니다.`;
+        appendChatMessage("assistant", aiText);
+
+        const now = new Date();
+        historyList.unshift({
+          timestamp: now.toLocaleString("ko-KR"),
+          question: data.question || question,
+          row_count: data.row_count ?? 0,
+          sql: data.sql || ""
+        });
+        renderHistory();
+
+      } catch (err) {
+        console.error(err);
+        const canvas = document.getElementById('myChart');
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.font = "14px ui-sans-serif";
+        ctx.fillStyle = "#6e6e73";
+        ctx.textAlign = "center";
+        ctx.fillText("오류가 발생했습니다.", canvas.width/2, canvas.height/2);
+        alert("백엔드 호출 중 오류가 발생했습니다. (콘솔 확인 필요)");
+      } finally {
+        $queryButton.disabled = false;
+        $queryButton.textContent = originalText;
+        if (!agentMode) setChartPanelVisible(true);
+      }
+    }
+
+  $queryButton.addEventListener("click", handleQuery);
+  $queryInput.addEventListener("keydown", (e) => { if (e.key === "Enter") handleQuery(); });
+
+  // -------------------------------
+  // 발주서 생성: 새 창 미리보기 후 인쇄/저장 선택
+  // -------------------------------
+  async function resolvePOImageSrc() {
+    for (const path of PO_IMAGE_PATHS) {
+      try {
+        const resp = await fetch(path, { method: "HEAD" });
+        if (resp.ok) return path;
+      } catch (e) {
+        // try next
+      }
+    }
+    throw new Error("발주서 이미지 파일을 찾을 수 없습니다.");
+  }
+
+  if (generatePOButton && dateInput) {
+    const poStatus = document.getElementById("poStatus");
+    generatePOButton.addEventListener("click", async () => {
+      const date = dateInput.value;
+      if (!date) {
+        alert("발주 기준일을 먼저 선택해 주세요.");
+        return;
+      }
+      const oldText = generatePOButton.textContent;
+      try {
+        generatePOButton.disabled = true;
+        generatePOButton.textContent = "생성 중...";
+        if (poStatus) poStatus.textContent = "발주서 미리보기 준비 중입니다... (약 4초)";
+        await new Promise((resolve) => setTimeout(resolve, 4000));
+        const imgSrc = await resolvePOImageSrc();
+        const win = window.open("", "_blank", "width=900,height=1200");
+        if (!win) throw new Error("팝업을 열 수 없습니다. 팝업 차단을 해제해 주세요.");
+        win.document.write(`
+          <html><head><title>발주서 미리보기</title></head>
+          <body style="margin:0; padding:0; background:#111; display:flex; flex-direction:column; align-items:center;">
+            <div style="padding:12px; color:#e5e7eb; font-family:ui-sans-serif; text-align:center;">
+              <div style="margin-bottom:8px; font-weight:700;">발주서 미리보기</div>
+              <div style="font-size:12px; color:#cbd5e1;">Ctrl+P 또는 브라우저 인쇄/저장(PDF)을 선택하세요.</div>
+              <button onclick="window.print()" style="margin-top:8px; padding:8px 14px; background:#f4a261; border:none; color:#111; border-radius:8px; cursor:pointer;">인쇄/저장</button>
+            </div>
+            <img src="${imgSrc}" style="max-width:95%; height:auto; margin:0 0 16px 0;" />
+          </body></html>
+        `);
+        win.document.close();
+        if (poStatus) poStatus.textContent = "미리보기가 열렸습니다. 인쇄/저장을 선택하세요.";
+      } catch (err) {
+        console.error("발주서 미리보기 실패:", err);
+        if (poStatus) poStatus.textContent = "미리보기 실패 (이미지 경로/팝업 설정 확인)";
+        alert(err.message || "미리보기 생성에 실패했습니다.");
+      } finally {
+        generatePOButton.disabled = false;
+        generatePOButton.textContent = oldText;
+      }
+    });
+  }
+
+  // 정밀 분석 리포트: 브라우저 인쇄/저장 대화창 호출 (즉시 다운로드 X)
+  if (savePdfBtn) {
+    savePdfBtn.addEventListener("click", () => {
+      window.print();
+    });
+  }
+
+    function renderPriority() {
+      const body = document.getElementById("priorityTableBody");
+      const plantSel = document.getElementById("priorityPlant");
+      const levelSel = document.getElementById("priorityLevel");
+      if (!body || !plantSel || !levelSel) return;
+
+      const plant = plantSel.value;
+      const level = levelSel.value;
+
+      const filtered = priorityMock.filter(r => {
+        const okPlant = (plant === "ALL") || (String(r.plant) === String(plant));
+        const okLevel =
+          (level === "ALL") ||
+          (level === "HIGH" && r.level === "상") ||
+          (level === "MID" && r.level === "중") ||
+          (level === "LOW" && r.level === "하");
+        return okPlant && okLevel;
+      });
+
+      body.innerHTML = "";
+      if (filtered.length === 0) {
+        const tr = document.createElement("tr");
+        const td = document.createElement("td");
+        td.colSpan = 9;
+        td.style.textAlign = "center";
+        td.style.padding = "20px";
+        td.style.color = "#6e6e73";
+        td.textContent = "조건에 맞는 우선 발주 항목이 없습니다.";
+        tr.appendChild(td);
+        body.appendChild(tr);
+        return;
+      }
+
+      filtered.forEach(r => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td class="td-right td-mono">${r.rank}</td>
+          <td class="td-mono">${r.plant}</td>
+          <td class="td-mono">${r.mat}</td>
+          <td>${r.name}</td>
+          <td>${r.vendor}</td>
+          <td class="td-right">${Number(r.shortage).toLocaleString()}</td>
+          <td>${r.due}</td>
+          <td>${r.level}</td>
+          <td>${r.reason}</td>
+        `;
+        body.appendChild(tr);
+      });
+    }
+
+    document.getElementById("priorityPlant")?.addEventListener("change", renderPriority);
+    document.getElementById("priorityLevel")?.addEventListener("change", renderPriority);
+    document.getElementById("priorityRefresh")?.addEventListener("click", renderPriority);
+
+    function renderOpenPO() {
+      const body = document.getElementById("openTableBody");
+      const statusSel = document.getElementById("openStatus");
+      const search = document.getElementById("openSearch");
+      if (!body || !statusSel || !search) return;
+
+      const status = statusSel.value;
+      const keyword = (search.value || "").trim().toLowerCase();
+
+      const filtered = openMock.filter(r => {
+        const okStatus =
+          status === "ALL" ||
+          (status === "OK" && r.status === "정상") ||
+          (status === "CHECK" && r.status === "확인필요") ||
+          (status === "WARN" && r.status === "경고");
+
+        const blob = `${r.po} ${r.plant} ${r.vendor} ${r.item} ${r.status}`.toLowerCase();
+        const okKeyword = keyword === "" || blob.includes(keyword);
+        return okStatus && okKeyword;
+      });
+
+      const ok = openMock.filter(x => x.status === "정상").length;
+      const check = openMock.filter(x => x.status === "확인필요").length;
+      const warn = openMock.filter(x => x.status === "경고").length;
+
+      document.getElementById("badge_ok").textContent = `정상 ${ok}`;
+      document.getElementById("badge_check").textContent = `확인필요 ${check}`;
+      document.getElementById("badge_warn").textContent = `경고 ${warn}`;
+
+      body.innerHTML = "";
+      if (filtered.length === 0) {
+        const tr = document.createElement("tr");
+        const td = document.createElement("td");
+        td.colSpan = 8;
+        td.style.textAlign = "center";
+        td.style.padding = "20px";
+        td.style.color = "#6e6e73";
+        td.textContent = "조건에 맞는 미결 구매오더가 없습니다.";
+        tr.appendChild(td);
+        body.appendChild(tr);
+        return;
+      }
+
+      filtered.forEach(r => {
+        const tr = document.createElement("tr");
+
+        const pill =
+          r.status === "정상" ? `<span class="status-pill status-ok">정상</span>` :
+          r.status === "확인필요" ? `<span class="status-pill status-check">확인필요</span>` :
+          `<span class="status-pill status-warn">경고</span>`;
+
+        tr.innerHTML = `
+          <td class="td-mono">${r.po}</td>
+          <td class="td-mono">${r.plant}</td>
+          <td>${r.vendor}</td>
+          <td>${r.item}</td>
+          <td class="td-right">${Number(r.qty).toLocaleString()}</td>
+          <td class="td-mono">${r.due}</td>
+          <td>${pill}</td>
+          <td>${r.delay}</td>
+        `;
+        body.appendChild(tr);
+      });
+    }
+
+    document.getElementById("openStatus")?.addEventListener("change", renderOpenPO);
+    document.getElementById("openSearch")?.addEventListener("input", renderOpenPO);
+    document.getElementById("openRefresh")?.addEventListener("click", renderOpenPO);
+
+    window.addEventListener("load", () => {
+      runSplash();
+    });
+  </script>
+</body>
+</html>

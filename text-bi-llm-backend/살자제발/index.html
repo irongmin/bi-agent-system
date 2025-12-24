@@ -1,0 +1,1500 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ILJI TECH AI Control Tower</title>
+
+  <!-- Dashboard에서 쓰는 라이브러리 그대로 유지 -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+
+  <!-- ✅ 로그인 타이틀 폰트: 로고 느낌 근접 -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
+
+  <!-- ✅ 스플래시/로그인 CSS는 기존 외부파일 유지 -->
+  <link rel="stylesheet" href="./app.css" />
+
+  <style>
+    :root{
+      --bg: #f5f5f7;
+      --card: #ffffff;
+      --text: #1d1d1f;
+      --muted: #6e6e73;
+      --line: #e5e5ea;
+      --shadow: 0 8px 24px rgba(0,0,0,0.06);
+
+      --blue: #007aff;
+      --green: #34c759;
+      --yellow: #ffcc00;
+      --red: #ff3b30;
+
+      /* ✅ sidebar "불 켜진" 기본 톤 */
+      --navBaseBg: rgba(0, 122, 255, 0.10);
+      --navBaseBorder: rgba(0, 122, 255, 0.18);
+      --navHoverBg: rgba(0, 122, 255, 0.18);
+      --navHoverBorder: rgba(0, 122, 255, 0.32);
+
+      /* ✅ 로그인 버튼/포커스 (파란빛) */
+      --loginBlueTop: #0A84FF;
+      --loginBlueBottom: #0066CC;
+      --loginBlueBorder: rgba(0, 122, 255, 0.55);
+      --loginFocusRing: rgba(0, 122, 255, 0.18);
+
+      /* ✅ 테이블 */
+      --tableHeaderBg: rgba(245,245,247,0.92);
+      --tableStripe: rgba(0,0,0,0.015);
+      --tableHover: rgba(0,122,255,0.06);
+      --tableCellPadY: 12px;
+      --tableCellPadX: 12px;
+      --tableRadius: 14px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    .hidden { display: none !important; }
+
+    @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes skeletonShimmer { 0% { background-position: -200px 0; } 100% { background-position: 200px 0; } }
+
+    body {
+      font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      overflow: hidden;
+    }
+    .app { display: flex; flex-direction: column; height: 100vh; }
+
+    /* 공통 카드 */
+    .card{
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+    }
+
+    /* 헤더: 화이트 + 블러 */
+    .header {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: rgba(255,255,255,0.82);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--line);
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .header-left { display:flex; align-items:center; gap:12px; }
+    .company-logo {
+      background: var(--card);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      border-radius: 14px;
+      padding: 10px 12px;
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+    .logo-icon {
+      width: 34px; height: 34px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, rgba(0,122,255,0.18), rgba(0,122,255,0.04));
+      border: 1px solid rgba(0,122,255,0.25);
+    }
+    .company-name { display:flex; flex-direction:column; line-height: 1.1; }
+    .company-title { font-size:14px; font-weight:700; letter-spacing:-0.2px; }
+    .company-subtitle { font-size:11px; color: var(--muted); margin-top:2px; }
+
+    .system-tabs { display:flex; align-items:center; gap:6px; margin-left: 6px; }
+    .tab{
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: var(--card);
+      font-size: 12px;
+      color: var(--muted);
+      cursor: pointer;
+      transition: .15s;
+      user-select: none;
+    }
+    .tab:hover{ transform: translateY(-1px); }
+    .tab.active{
+      color: white;
+      border-color: rgba(0,122,255,0.6);
+      background: var(--blue);
+    }
+
+    .header-right { margin-left:auto; display:flex; align-items:center; gap:14px; }
+    .status-info {
+      display:flex; align-items:center; gap:8px;
+      font-size: 12px; color: var(--muted);
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 8px 10px;
+    }
+    .status-dot { width:8px; height:8px; background: var(--green); border-radius:50%; }
+    .datetime { font-size:12px; color: var(--muted); }
+
+    /* 레이아웃 */
+    .main-layout { display:flex; flex:1; overflow:hidden; padding: 14px; gap: 14px; }
+
+    /* 사이드바: 라이트 */
+    .sidebar{
+      width: 240px;
+      background: rgba(255,255,255,0.86);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      display:flex; flex-direction:column;
+    }
+    .nav-section{ padding: 14px 12px; border-bottom: 1px solid var(--line); }
+    .nav-title{
+      font-size: 11px;
+      color: var(--muted);
+      font-weight: 700;
+      padding: 0 6px;
+      margin-bottom: 10px;
+      letter-spacing: .2px;
+    }
+
+    /* ✅ 기본 상태에서 전부 불 켠 느낌 */
+    .nav-item{
+      display:flex; align-items:center; gap:10px;
+      padding: 10px 10px;
+      border-radius: 12px;
+      color: var(--text);
+      font-size: 13px;
+      cursor:pointer;
+      transition: transform .15s, background .15s, border-color .15s, box-shadow .15s, color .15s;
+      user-select: none;
+      background: var(--navBaseBg);
+      border: 1px solid var(--navBaseBorder);
+      box-shadow: 0 6px 16px rgba(0,122,255,0.06);
+    }
+
+    .nav-item:hover{
+      background: var(--navHoverBg);
+      border-color: var(--navHoverBorder);
+      transform: translateY(-1px);
+      box-shadow: 0 10px 22px rgba(0,122,255,0.12);
+    }
+
+    .nav-item.active{
+      color: var(--text);
+      background: rgba(0,122,255,0.14);
+      border-color: rgba(0,122,255,0.26);
+      box-shadow: 0 8px 18px rgba(0,122,255,0.10);
+      font-weight: 800;
+    }
+    .nav-icon{ opacity:.85; }
+
+    /* 메인 */
+    .main-content{
+      flex:1;
+      overflow-y:auto;
+      background: transparent;
+    }
+    .content-header{
+      background: transparent;
+      padding: 4px 4px 14px 4px;
+      border-bottom: 1px solid var(--line);
+      margin-bottom: 14px;
+    }
+    .content-title{ font-size: 24px; font-weight: 900; letter-spacing:-0.5px; }
+    .breadcrumb{ font-size: 12px; color: var(--muted); margin-top: 6px; }
+    .content-body{ padding: 2px 4px 24px 4px; }
+
+    .page-content{ display:none; }
+    .page-content.active{ display:block; }
+
+    /* 질의 패널 */
+    .query-panel{ padding: 18px; margin-bottom: 14px; animation: slideIn .35s ease; }
+    .panel-header{
+      display:flex; align-items:center; justify-content:space-between;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .panel-title{ font-size: 14px; font-weight: 900; }
+    .query-form{ display:flex; gap: 10px; align-items:center; }
+    .query-input{
+      flex:1;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      outline: none;
+      font-size: 14px;
+      background: var(--card);
+    }
+    .query-input:focus{
+      border-color: rgba(0,122,255,0.45);
+      box-shadow: 0 0 0 4px rgba(0,122,255,0.12);
+    }
+    .btn-execute{
+      padding: 12px 16px;
+      border-radius: 12px;
+      border: 1px solid rgba(0,122,255,0.35);
+      background: var(--blue);
+      color: #fff;
+      font-weight: 900;
+      cursor: pointer;
+      transition: .15s;
+      white-space: nowrap;
+    }
+    .btn-execute:hover:not(:disabled){ transform: translateY(-1px); }
+    .btn-execute:disabled{ opacity:.6; cursor:not-allowed; }
+
+    /* 채팅 */
+    .chat-panel{ padding: 14px; margin-bottom: 14px; }
+    .chat-header{ display:flex; justify-content:space-between; color: var(--muted); font-size: 12px; margin-bottom: 10px; }
+    .chat-list{ max-height: 220px; overflow-y:auto; padding-right: 4px; }
+    .chat-message{ display:flex; margin-bottom: 10px; }
+    .chat-message.user{ justify-content:flex-end; }
+    .chat-message.assistant{ justify-content:flex-start; }
+    .chat-bubble{
+      max-width: 70%;
+      padding: 10px 12px;
+      border-radius: 16px;
+      font-size: 13px;
+      line-height: 1.55;
+      border: 1px solid var(--line);
+      background: var(--card);
+      white-space: pre-line;
+      text-align: left;
+    }
+    .chat-bubble.user{
+      background: rgba(0,122,255,0.12);
+      border-color: rgba(0,122,255,0.18);
+      color: var(--text);
+    }
+    .chat-bubble.assistant{ color: var(--text); }
+    .chat-meta{ font-size: 10px; color: var(--muted); margin-top: 4px; }
+
+    /* 대시보드 그리드 */
+    .dashboard-grid{ display:grid; grid-template-columns:repeat(12, 1fr); gap: 14px; animation: slideIn .35s ease; }
+    .insight-panel{ grid-column: span 12; padding: 16px; }
+    .insight-content{ color: var(--text); font-size: 14px; line-height: 1.75; }
+
+    .chart-panel{ grid-column: span 7; padding: 16px; }
+    .table-panel{ grid-column: span 5; padding: 16px; }
+
+    .panel-subtitle{
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 900;
+      margin-bottom: 10px;
+    }
+
+    .chart-area{
+      height: 320px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: var(--card);
+      padding: 10px;
+    }
+    #myChart{ width:100% !important; height:100% !important; }
+
+    /* =========================================================
+       ✅ TABLE (scoped) : app.css가 덮어도 안 죽게 강제
+    ========================================================= */
+    #dashboardRoot .table-shell{
+      border: 1px solid var(--line);
+      border-radius: var(--tableRadius);
+      overflow: auto;
+      background: var(--card);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.65);
+      -webkit-overflow-scrolling: touch;
+    }
+    #dashboardRoot .data-table,
+    #dashboardRoot .history-table{
+      width: 100%;
+      min-width: 680px;
+      border-collapse: separate !important;
+      border-spacing: 0 !important;
+    }
+    #dashboardRoot .data-table thead th,
+    #dashboardRoot .history-table thead th{
+      position: sticky; top: 0; z-index: 2;
+      text-align: left;
+      font-size: 11.5px;
+      color: var(--muted);
+      padding: var(--tableCellPadY) var(--tableCellPadX);
+      background: var(--tableHeaderBg);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(0,0,0,0.08);
+      font-weight: 950;
+      letter-spacing: .2px;
+      white-space: nowrap;
+    }
+    #dashboardRoot .data-table tbody td,
+    #dashboardRoot .history-table tbody td{
+      padding: var(--tableCellPadY) var(--tableCellPadX);
+      font-size: 13px;
+      border-bottom: 1px solid rgba(0,0,0,0.06);
+      vertical-align: middle;
+      background: transparent;
+      white-space: nowrap;
+    }
+    #dashboardRoot .data-table tbody tr:nth-child(even) td,
+    #dashboardRoot .history-table tbody tr:nth-child(even) td{
+      background: var(--tableStripe);
+    }
+    #dashboardRoot .data-table tbody tr:hover td,
+    #dashboardRoot .history-table tbody tr:hover td{
+      background: var(--tableHover);
+    }
+    #dashboardRoot .data-table tr.active-row td{
+      background: rgba(0,122,255,0.10) !important;
+    }
+    #dashboardRoot .data-table thead tr th:first-child,
+    #dashboardRoot .history-table thead tr th:first-child{ border-top-left-radius: var(--tableRadius); }
+    #dashboardRoot .data-table thead tr th:last-child,
+    #dashboardRoot .history-table thead tr th:last-child{ border-top-right-radius: var(--tableRadius); }
+    #dashboardRoot .data-table tbody tr:last-child td:first-child,
+    #dashboardRoot .history-table tbody tr:last-child td:first-child{ border-bottom-left-radius: var(--tableRadius); }
+    #dashboardRoot .data-table tbody tr:last-child td:last-child,
+    #dashboardRoot .history-table tbody tr:last-child td:last-child{ border-bottom-right-radius: var(--tableRadius); }
+
+    #dashboardRoot .td-right{ text-align:right !important; font-variant-numeric: tabular-nums; }
+    #dashboardRoot .td-mono{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: .1px;
+    }
+
+    /* KPI */
+    .kpi-section{
+      grid-column: span 12;
+      display:grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+      margin-top: 2px;
+    }
+    .kpi-card{ padding: 14px; }
+    .kpi-label{ font-size: 12px; color: var(--muted); font-weight: 900; margin-bottom: 8px; }
+    .kpi-value{ font-size: 26px; font-weight: 950; letter-spacing: -0.6px; }
+    .kpi-change{ font-size: 12px; color: var(--muted); margin-top: 6px; }
+
+    /* SQL */
+    .sql-panel{ grid-column: span 12; padding: 14px; margin-top: 2px; }
+    .sql-header{ font-size: 12px; color: var(--muted); font-weight: 950; margin-bottom: 10px; }
+    .sql-code{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace;
+      font-size: 12px;
+      line-height: 1.6;
+      color: var(--text);
+      background: rgba(0,0,0,0.04);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 12px;
+      overflow-x: auto;
+      white-space: pre-wrap;
+    }
+
+    /* 공통 패널 */
+    .history-panel{ padding: 16px; }
+
+    /* 툴바 */
+    .toolbar{ display:flex; gap: 10px; align-items:center; flex-wrap:wrap; }
+    .select, .text{
+      padding: 9px 10px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: var(--card);
+      font-size: 13px;
+      outline:none;
+    }
+    .select:focus, .text:focus{
+      border-color: rgba(0,122,255,0.45);
+      box-shadow: 0 0 0 4px rgba(0,122,255,0.12);
+    }
+    .mini-btn{
+      padding: 9px 12px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: var(--card);
+      cursor:pointer;
+      transition: .15s;
+      font-size: 13px;
+      font-weight: 800;
+    }
+    .mini-btn:hover{ transform: translateY(-1px); background: rgba(0,0,0,0.03); }
+
+    /* ✅ 상태 pill */
+    .status-pill{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap: 6px;
+      padding: 7px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 950;
+      letter-spacing: -0.2px;
+      color: white;
+      min-width: 86px;
+      box-shadow: 0 10px 22px rgba(0,0,0,0.08);
+    }
+    .status-pill::before{
+      content:"";
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.9);
+      opacity: .9;
+    }
+    .status-ok{ background: linear-gradient(180deg, rgba(52,199,89,1), rgba(39,174,70,1)); }
+    .status-check{ background: linear-gradient(180deg, rgba(255,204,0,1), rgba(245,180,0,1)); color: #1d1d1f; }
+    .status-check::before{ background: rgba(29,29,31,0.75); }
+    .status-warn{ background: linear-gradient(180deg, rgba(255,59,48,1), rgba(227,46,37,1)); }
+
+    /* Skeleton */
+    .skeleton{
+      background: linear-gradient(90deg, #ececf0 25%, #f6f6f8 37%, #ececf0 63%);
+      background-size: 400px 100%;
+      animation: skeletonShimmer 1.2s ease-in-out infinite;
+      border-radius: 10px;
+    }
+    .skeleton-row{ height: 18px; margin-bottom: 10px; }
+
+    @media (max-width: 1200px) {
+      .chart-panel{ grid-column: span 12; }
+      .table-panel{ grid-column: span 12; }
+      #dashboardRoot .data-table, #dashboardRoot .history-table{ min-width: 860px; }
+    }
+
+    /* =========================================================
+       ✅ LOGIN OVERRIDE
+    ========================================================= */
+    #loginPanel .login-title-main{
+      font-family: "Montserrat", ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+      font-weight: 900 !important;
+      letter-spacing: 0.6px !important;
+    }
+
+    #loginPanel .login-btn,
+    #loginBtn.login-btn{
+      width: 100%;
+      background: linear-gradient(180deg, var(--loginBlueTop), var(--loginBlueBottom)) !important;
+      border: 1px solid var(--loginBlueBorder) !important;
+      color: #fff !important;
+      font-weight: 900 !important;
+      letter-spacing: 0.2px !important;
+      box-shadow: 0 12px 26px rgba(0, 122, 255, 0.28) !important;
+      transition: transform .15s ease, filter .15s ease, box-shadow .15s ease !important;
+    }
+    #loginPanel .login-btn:hover,
+    #loginBtn.login-btn:hover{
+      transform: translateY(-1px);
+      filter: brightness(1.05);
+      box-shadow: 0 16px 32px rgba(0, 122, 255, 0.38) !important;
+    }
+    #loginPanel .login-btn:active,
+    #loginBtn.login-btn:active{
+      transform: translateY(0);
+      filter: brightness(0.98);
+    }
+
+    #loginPanel .login-input:focus{
+      border-color: var(--loginBlueBorder) !important;
+      box-shadow: 0 0 0 4px var(--loginFocusRing) !important;
+      outline: none !important;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- SPLASH + LOGIN (유지) -->
+  <div id="splashRoot" class="splash-root">
+    <div class="splash-stage">
+      <img id="iljiFullLogo" class="ilji-full-logo" src="./ILJI.png" alt="ILJI TECH Full Logo" />
+      <div id="logoAssemble" class="logo-assemble" aria-label="ILJI TECH AI Control Tower Logo">
+        <img id="part4" class="logo-part part4" src="./CT-removebg4.png" alt="Orange Rectangle" />
+        <img id="part1" class="logo-part part1" src="./CT-removebg1.png" alt="Green Tower Base" />
+        <img id="part3" class="logo-part part3" src="./CT-removebg3.png" alt="Top Triangle" />
+        <img id="part2" class="logo-part part2" src="./CT-removebg2.png" alt="ILJI TECH AI Control Tower Text" />
+      </div>
+
+      <div id="loginPanel" class="login-panel" aria-hidden="true">
+        <div class="login-title">
+          <div class="login-title-main">ILJI TECH</div>
+          <div class="login-title-sub">AI Control Tower</div>
+        </div>
+
+        <div class="login-form">
+          <label class="login-label">사번</label>
+          <input id="empNo" class="login-input" type="text" inputmode="numeric" placeholder="1111" autocomplete="off" />
+          <label class="login-label">비밀번호</label>
+          <input id="empPw" class="login-input" type="password" placeholder="1111" autocomplete="off" />
+          <button id="loginBtn" class="login-btn" type="button">로그인</button>
+          <div id="loginMsg" class="login-msg" role="status" aria-live="polite"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div id="dashboardRoot" class="dashboard-root hidden">
+    <div class="app">
+      <header class="header">
+        <div class="header-left">
+          <div class="company-logo">
+            <div class="logo-icon"></div>
+            <div class="company-name">
+              <div class="company-title">ILJI TECH</div>
+              <div class="company-subtitle">일지테크</div>
+            </div>
+          </div>
+          <div class="system-tabs">
+            <div class="tab active">구매관리</div>
+            <div class="tab">생산관리</div>
+            <div class="tab">품질관리</div>
+            <div class="tab">재고관리</div>
+            <div class="tab">설비관리</div>
+          </div>
+        </div>
+        <div class="header-right">
+          <div class="status-info">
+            <div class="status-dot"></div>
+            <span>시스템 정상</span>
+          </div>
+          <div class="datetime" id="datetime"></div>
+        </div>
+      </header>
+
+      <div class="main-layout">
+        <aside class="sidebar">
+          <div class="nav-section">
+            <div class="nav-title">메인 메뉴</div>
+
+            <div class="nav-item active" data-page="dashboard">
+              <span class="nav-icon">■</span>
+              <span>대시보드</span>
+            </div>
+
+            <div class="nav-item" data-page="history">
+              <span class="nav-icon">■</span>
+              <span>분석 히스토리</span>
+            </div>
+
+            <div class="nav-item" data-page="po">
+              <span class="nav-icon">■</span>
+              <span>발주서 생성기</span>
+            </div>
+
+            <div class="nav-item" data-page="priority">
+              <span class="nav-icon">■</span>
+              <span>발주 우선순위</span>
+            </div>
+
+            <div class="nav-item" data-page="po_open">
+              <span class="nav-icon">■</span>
+              <span>구매오더 미결 관리</span>
+            </div>
+          </div>
+
+          <div class="nav-section">
+            <div class="nav-title">자주 찾는 질문</div>
+            <div class="nav-item quick-query" data-template="플랜트별 재고금액 상위 10개 보여줘.">
+              <span class="nav-icon">▸</span>
+              <span>재고 TOP 10</span>
+            </div>
+            <div class="nav-item quick-query" data-template="공급업체별 발주금액 상위 10개 보여줘.">
+              <span class="nav-icon">▸</span>
+              <span>공급사 TOP 10</span>
+            </div>
+            <div class="nav-item quick-query" data-template="최근 6개월간 월별 수주금액 추이를 보여줘.">
+              <span class="nav-icon">▸</span>
+              <span>수주 추세</span>
+            </div>
+            <div class="nav-item quick-query" data-template="플랜트별 재고회전율을 비교해줘.">
+              <span class="nav-icon">▸</span>
+              <span>재고 회전율</span>
+            </div>
+          </div>
+
+          <div class="nav-section">
+            <div class="nav-title">시스템</div>
+            <div class="nav-item">
+              <span class="nav-icon">⚙</span>
+              <span>환경설정 (Mock)</span>
+            </div>
+          </div>
+        </aside>
+
+        <main class="main-content">
+          <!-- DASHBOARD PAGE -->
+          <div id="dashboard-page" class="page-content active">
+            <div class="content-header">
+              <div class="content-title">구매 관제탑</div>
+              <div class="breadcrumb">일지테크 관제탑 &gt; 구매관리 &gt; 대시보드</div>
+            </div>
+
+            <div class="content-body">
+              <div class="query-panel card">
+                <div class="panel-header">
+                  <div class="panel-title">궁금한 게 있으신가요?</div>
+                </div>
+                <div class="query-form">
+                  <input type="text" class="query-input" id="queryInput"
+                    placeholder="편하게 물어보세요! 예) 플랜트별 재고금액 상위 10개 보여줘 / 공급사별 발주금액 상위 10개" />
+                  <button class="btn-execute" id="queryButton">확인</button>
+                </div>
+              </div>
+
+              <div class="chat-panel card">
+                <div class="chat-header">
+                  <span>대화형 질의 내역</span>
+                  <span style="font-size:11px;color:var(--muted);">사용자는 우측 · AI는 좌측</span>
+                </div>
+                <div class="chat-list" id="chatList">
+                  <div class="chat-message assistant">
+                    <div>
+                      <div class="chat-bubble assistant">안녕하세요. 일지테크 구매 관제탑용 AI입니다. “플랜트별 재고금액 상위 10개 보여줘”처럼 물어보시면 SQL 생성부터 시각화까지 한 번에 도와드릴게요.</div>
+                      <div class="chat-meta">시스템</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="dashboard-grid">
+                <div class="insight-panel card">
+                  <div class="panel-subtitle">AI 인사이트</div>
+                  <div class="insight-content" id="insightText">
+                    질문을 입력하고 "확인" 버튼을 눌러보세요. AI가 데이터에서 시사점을 찾아드립니다.
+                  </div>
+                </div>
+
+                <div class="chart-panel card">
+                  <div class="panel-subtitle">데이터 시각화</div>
+                  <div class="chart-area" id="chartContainer">
+                    <canvas id="myChart"></canvas>
+                  </div>
+                </div>
+
+                <div class="table-panel card">
+                  <div class="panel-subtitle">조회 결과</div>
+                  <div class="table-shell">
+                    <table class="data-table">
+                      <thead id="tableHead"></thead>
+                      <tbody id="tableBody">
+                        <tr>
+                          <td colspan="100" style="text-align:center; padding:40px; color:var(--muted);">
+                            데이터를 조회하면 이 영역에 상세 결과가 표시됩니다.
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <!-- KPI -->
+                <div class="kpi-section">
+                  <div class="kpi-card card">
+                    <div class="kpi-label">KPI #1</div>
+                    <div class="kpi-value" id="kpi1Value">-</div>
+                    <div class="kpi-change" id="kpi1Desc">마지막 조회 기준 주요 지표를 표시합니다.</div>
+                  </div>
+                  <div class="kpi-card card">
+                    <div class="kpi-label">KPI #2</div>
+                    <div class="kpi-value" id="kpi2Value">-</div>
+                    <div class="kpi-change" id="kpi2Desc">추후 경영지표와 연동 가능합니다.</div>
+                  </div>
+                  <div class="kpi-card card">
+                    <div class="kpi-label">KPI #3</div>
+                    <div class="kpi-value" id="kpi3Value">-</div>
+                    <div class="kpi-change" id="kpi3Desc">추후 확장 영역입니다.</div>
+                  </div>
+                </div>
+
+                <div class="sql-panel card">
+                  <div class="sql-header">생성된 SQL 쿼리</div>
+                  <div class="sql-code" id="sqlCode">아직 SQL이 생성되지 않았습니다.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- HISTORY PAGE -->
+          <div id="history-page" class="page-content">
+            <div class="content-header">
+              <div class="content-title">분석 히스토리</div>
+              <div class="breadcrumb">일지테크 관제탑 &gt; 구매관리 &gt; 분석 히스토리</div>
+            </div>
+            <div class="content-body">
+              <div class="history-panel card">
+                <div style="font-size:14px;margin-bottom:8px;font-weight:900;">최근 AI 분석 이력</div>
+                <div style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.6;">
+                  실제 PoC에서는 사용자·일자·질문·SQL·결과를 남겨서 재사용 가능한 분석 레시피로 활용할 수 있습니다.
+                </div>
+
+                <div class="table-shell">
+                  <table class="history-table">
+                    <thead>
+                      <tr>
+                        <th style="width:160px;">조회 시각</th>
+                        <th>질문</th>
+                        <th style="width:80px;">결과 건수</th>
+                        <th style="width:220px;">SQL (앞부분)</th>
+                      </tr>
+                    </thead>
+                    <tbody id="historyTableBody">
+                      <tr>
+                        <td colspan="4" style="text-align:center;padding:20px;color:var(--muted);">
+                          아직 분석 이력이 없습니다. 대시보드에서 먼저 질의를 실행해보세요.
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+              </div>
+            </div>
+          </div>
+
+          <!-- PO GENERATOR PAGE -->
+          <div id="po-page" class="page-content">
+            <div class="content-header">
+              <div class="content-title">발주서 생성기</div>
+              <div class="breadcrumb">일지테크 관제탑 &gt; 구매관리 &gt; 발주서 생성기</div>
+            </div>
+
+            <div class="content-body">
+              <div class="history-panel card">
+                <div style="font-size:14px;margin-bottom:8px;font-weight:900;">생산계획 기반 자동 발주서 생성</div>
+                <div style="font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.6;">
+                  선택한 기준일의 생산계획·BOM·재고·기준정보를 자동으로 계산하여
+                  공급업체별 발주서 PDF를 생성합니다. (서버: <b>C:/po_gen</b> 경로에 저장)
+                </div>
+
+                <div id="poResult" style="margin-top:16px; display:none;">
+                  <div style="font-size:14px;font-weight:900;margin-bottom:8px;">생성된 발주서 다운로드</div>
+                  <ul id="poResultList" style="font-size:13px; line-height:1.8;"></ul>
+                </div>
+
+                <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;flex-wrap:wrap;">
+                  <label for="dateInput" style="font-size:12px;color:var(--muted);font-weight:900;">발주 기준일</label>
+                  <input type="date" id="dateInput" class="text"/>
+                  <button class="btn-execute" id="generatePOButton" style="padding:10px 14px; font-size:13px;">
+                    발주서 생성
+                  </button>
+                </div>
+
+                <div id="poStatus" style="font-size:12px;color:var(--muted);">
+                  발주 기준일을 선택하고 &lt;발주서 생성&gt; 버튼을 누르면, 서버에서 PDF를 생성합니다.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 발주 우선순위 PAGE -->
+          <div id="priority-page" class="page-content">
+            <div class="content-header">
+              <div class="content-title">발주 우선순위</div>
+              <div class="breadcrumb">일지테크 관제탑 &gt; 구매관리 &gt; 발주 우선순위</div>
+            </div>
+
+            <div class="content-body">
+              <div class="history-panel card">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap;">
+                  <div>
+                    <div style="font-size:14px;margin-bottom:6px;font-weight:950;">금일 우선 발주 항목</div>
+                    <div style="font-size:12px;color:var(--muted);line-height:1.6;">
+                      (Mock) 부족/긴급/납기임박 기준으로 자동 랭킹된 리스트를 보여주는 영역입니다.
+                    </div>
+                  </div>
+                  <div class="toolbar">
+                    <select id="priorityPlant" class="select">
+                      <option value="ALL">플랜트: 전체</option>
+                      <option value="1010">1010 (경산)</option>
+                      <option value="1021">1021 (경주)</option>
+                      <option value="1022">1022 (경주)</option>
+                      <option value="1023">1023 (경주)</option>
+                      <option value="1024">1024 (경주)</option>
+                    </select>
+
+                    <select id="priorityLevel" class="select">
+                      <option value="ALL">우선순위: 전체</option>
+                      <option value="HIGH">상</option>
+                      <option value="MID">중</option>
+                      <option value="LOW">하</option>
+                    </select>
+                    <button id="priorityRefresh" class="mini-btn">새로고침(Mock)</button>
+                  </div>
+                </div>
+
+                <div class="table-shell" style="margin-top:12px;">
+                  <table class="history-table">
+                    <thead>
+                      <tr>
+                        <th style="width:64px;">순위</th>
+                        <th style="width:120px;">플랜트</th>
+                        <th style="width:160px;">자재코드</th>
+                        <th>자재명</th>
+                        <th style="width:120px;">공급업체</th>
+                        <th style="width:120px;">부족수량</th>
+                        <th style="width:120px;">납기</th>
+                        <th style="width:120px;">우선순위</th>
+                        <th style="width:140px;">사유</th>
+                      </tr>
+                    </thead>
+                    <tbody id="priorityTableBody"></tbody>
+                  </table>
+                </div>
+
+                <div style="margin-top:12px;font-size:12px;color:var(--muted);">
+                  ※ 다음 단계: 클릭한 항목 → 발주서 생성기로 전달 / 또는 해당 항목만 발주 PDF 생성 연결
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 구매오더 미결 관리 PAGE -->
+          <div id="po_open-page" class="page-content">
+            <div class="content-header">
+              <div class="content-title">구매오더 미결 관리</div>
+              <div class="breadcrumb">일지테크 관제탑 &gt; 구매관리 &gt; 구매오더 미결 관리</div>
+            </div>
+
+            <div class="content-body">
+              <div class="history-panel card">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap;">
+                  <div>
+                    <div style="font-size:14px;margin-bottom:6px;font-weight:950;">미결 상태 현황</div>
+                    <div style="font-size:12px;color:var(--muted);line-height:1.6;">
+                      (Mock) 발주 후 입고/검수/정산 등 단계 지연을 종합해서 “정상/확인필요/경고”로 표시합니다.
+                    </div>
+                  </div>
+                  <div class="toolbar">
+                    <select id="openStatus" class="select">
+                      <option value="ALL">상태: 전체</option>
+                      <option value="OK">정상</option>
+                      <option value="CHECK">확인필요</option>
+                      <option value="WARN">경고</option>
+                    </select>
+                    <input id="openSearch" class="text" type="text" placeholder="자재/업체/PO 검색 (Mock)" />
+                    <button id="openRefresh" class="mini-btn">새로고침(Mock)</button>
+                  </div>
+                </div>
+
+                <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;">
+                  <span class="status-pill status-ok" id="badge_ok">정상 0</span>
+                  <span class="status-pill status-check" id="badge_check">확인필요 0</span>
+                  <span class="status-pill status-warn" id="badge_warn">경고 0</span>
+                </div>
+
+                <div class="table-shell" style="margin-top:12px;">
+                  <table class="history-table">
+                    <thead>
+                      <tr>
+                        <th style="width:160px;">PO번호</th>
+                        <th style="width:120px;">플랜트</th>
+                        <th style="width:140px;">업체</th>
+                        <th>자재명</th>
+                        <th style="width:120px;">수량</th>
+                        <th style="width:140px;">납기</th>
+                        <th style="width:140px;">상태</th>
+                        <th style="width:140px;">지연</th>
+                      </tr>
+                    </thead>
+                    <tbody id="openTableBody"></tbody>
+                  </table>
+                </div>
+
+                <div style="margin-top:12px;font-size:12px;color:var(--muted);">
+                  ※ 다음 단계: 상태 클릭 → 담당자 알림/메일/협력사 독촉 템플릿/이력 저장 연동
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </main>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // =========================
+    //  SPLASH FLOW (기존 유지)
+    // =========================
+    const splashRoot   = document.getElementById("splashRoot");
+    const iljiFullLogo = document.getElementById("iljiFullLogo");
+
+    const logoAssemble = document.getElementById("logoAssemble");
+    const part1 = document.getElementById("part1");
+    const part2 = document.getElementById("part2");
+    const part3 = document.getElementById("part3");
+    const part4 = document.getElementById("part4");
+
+    const loginPanel = document.getElementById("loginPanel");
+    const loginBtn   = document.getElementById("loginBtn");
+    const loginMsg   = document.getElementById("loginMsg");
+
+    const dashboardRoot = document.getElementById("dashboardRoot");
+
+    function runSplash() {
+      iljiFullLogo.classList.add("play");
+
+      setTimeout(() => {
+        setTimeout(() => part4.classList.add("fly-in"), 100);
+        setTimeout(() => part1.classList.add("fly-in"), 260);
+        setTimeout(() => part3.classList.add("fly-in"), 420);
+        setTimeout(() => part2.classList.add("fly-in"), 560);
+      }, 1200);
+
+      setTimeout(() => { logoAssemble.classList.add("logo-zoom"); }, 2200);
+      setTimeout(() => { logoAssemble.classList.add("logo-fade"); }, 3800);
+
+      setTimeout(() => {
+        loginPanel.classList.add("show");
+        splashRoot.classList.add("login-bg");
+      }, 4100);
+    }
+
+    loginBtn.addEventListener("click", () => {
+      loginMsg.textContent = "";
+      const empNo = document.getElementById("empNo").value.trim();
+      const empPw = document.getElementById("empPw").value.trim();
+
+      if (empNo === "1111" && empPw === "1111") {
+        document.getElementById("splashRoot").classList.add("hidden");
+        dashboardRoot.classList.remove("hidden");
+        document.body.style.overflow = "auto";
+      } else {
+        loginMsg.textContent = "사번 또는 비밀번호가 올바르지 않습니다.";
+      }
+    });
+
+    // =========================
+    // DASHBOARD SCRIPT
+    // =========================
+    const API_BASE = "/api/v1";
+
+    const $datetime = document.getElementById("datetime");
+    const $queryInput = document.getElementById("queryInput");
+    const $queryButton = document.getElementById("queryButton");
+    const $insightText = document.getElementById("insightText");
+    const $tableHead = document.getElementById("tableHead");
+    const $tableBody = document.getElementById("tableBody");
+    const $sqlCode = document.getElementById("sqlCode");
+    const $chatList = document.getElementById("chatList");
+
+    const $kpi1Value = document.getElementById("kpi1Value");
+    const $kpi1Desc = document.getElementById("kpi1Desc");
+    const dateInput = document.getElementById("dateInput");
+    const generatePOButton = document.getElementById("generatePOButton");
+
+    let historyList = [];
+    let rowElementsByKey = {};
+    let myChartInstance = null;
+
+    const priorityMock = [
+      { rank: 1, plant: "1010", mat: "MAT-1000123", name: "브라켓 A", vendor: "협력사A", shortage: 120, due: "오늘", level: "상", reason: "납기임박" },
+      { rank: 2, plant: "1021", mat: "MAT-1000456", name: "볼트 M8", vendor: "협력사B", shortage: 500, due: "D+1", level: "상", reason: "안전재고 미만" },
+      { rank: 3, plant: "1022", mat: "MAT-1000789", name: "하네스", vendor: "협력사C", shortage: 40, due: "D+2", level: "중", reason: "수요급증" },
+      { rank: 4, plant: "1023", mat: "MAT-1000111", name: "클립", vendor: "협력사D", shortage: 300, due: "D+3", level: "하", reason: "예상부족" },
+      { rank: 5, plant: "1024", mat: "MAT-1000999", name: "패드", vendor: "협력사E", shortage: 80, due: "D+2", level: "중", reason: "예상부족" },
+    ];
+
+    const openMock = [
+      { po: "4500001234", plant: "1010", vendor: "협력사A", item: "브라켓 A", qty: 120, due: "2025-12-17", status: "경고",     delay: "1일 지연" },
+      { po: "4500001288", plant: "1021", vendor: "협력사B", item: "볼트 M8",  qty: 500, due: "2025-12-18", status: "확인필요", delay: "-" },
+      { po: "4500001301", plant: "1022", vendor: "협력사C", item: "하네스",    qty: 40,  due: "2025-12-16", status: "경고",     delay: "2일 지연" },
+      { po: "4500001310", plant: "1023", vendor: "협력사D", item: "클립",      qty: 300, due: "2025-12-19", status: "확인필요", delay: "-" },
+      { po: "4500001402", plant: "1024", vendor: "협력사E", item: "패드",      qty: 60,  due: "2025-12-15", status: "정상",     delay: "-" },
+    ];
+
+    function setActivePage(pageId) {
+      document.querySelectorAll(".page-content").forEach(p => p.classList.remove("active"));
+      const target = document.getElementById(`${pageId}-page`);
+      if (target) target.classList.add("active");
+    }
+
+    document.querySelectorAll(".nav-item[data-page]").forEach(item => {
+      item.addEventListener("click", () => {
+        document.querySelectorAll(".nav-item[data-page]").forEach(n => n.classList.remove("active"));
+        item.classList.add("active");
+        setActivePage(item.dataset.page);
+
+        if (item.dataset.page === "priority") renderPriority();
+        if (item.dataset.page === "po_open") renderOpenPO();
+      });
+    });
+
+    document.querySelectorAll(".quick-query").forEach(item => {
+      item.addEventListener("click", () => {
+        const tmpl = item.dataset.template || "";
+        $queryInput.value = tmpl;
+        $queryInput.focus();
+      });
+    });
+
+    function updateDateTime() {
+      const now = new Date();
+      $datetime.textContent = now.toLocaleString("ko-KR");
+    }
+    updateDateTime();
+    setInterval(updateDateTime, 1000 * 30);
+
+    function appendChatMessage(role, text) {
+      const wrapper = document.createElement("div");
+      wrapper.className = `chat-message ${role}`;
+
+      const inner = document.createElement("div");
+
+      const bubble = document.createElement("div");
+      bubble.className = `chat-bubble ${role}`;
+      bubble.textContent = text;
+
+      const meta = document.createElement("div");
+      meta.className = "chat-meta";
+      const now = new Date();
+      meta.textContent = now.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
+
+      inner.appendChild(bubble);
+      inner.appendChild(meta);
+      wrapper.appendChild(inner);
+
+      $chatList.appendChild(wrapper);
+      $chatList.scrollTop = $chatList.scrollHeight;
+    }
+
+    function showSkeleton() {
+      if (myChartInstance) { myChartInstance.destroy(); myChartInstance = null; }
+      const canvas = document.getElementById('myChart');
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      ctx.font = "14px ui-sans-serif";
+      ctx.fillStyle = "#6e6e73";
+      ctx.textAlign = "center";
+      ctx.fillText("데이터 분석 중...", canvas.width / 2, canvas.height / 2);
+
+      $tableHead.innerHTML = "";
+      $tableBody.innerHTML = "";
+      for (let i = 0; i < 4; i++) {
+        const tr = document.createElement("tr");
+        const td = document.createElement("td");
+        td.colSpan = 4;
+        const sk = document.createElement("div");
+        sk.className = "skeleton skeleton-row";
+        td.appendChild(sk);
+        tr.appendChild(td);
+        $tableBody.appendChild(tr);
+      }
+    }
+
+    function clearActiveRowHighlight() {
+      Object.values(rowElementsByKey).forEach(el => el.classList.remove("active-row"));
+      if (myChartInstance) {
+        myChartInstance.setActiveElements([]);
+        myChartInstance.update();
+      }
+    }
+
+    function highlightByKey(key) {
+      clearActiveRowHighlight();
+      const row = rowElementsByKey[String(key)];
+      if (row) row.classList.add("active-row");
+
+      if (myChartInstance && myChartInstance.data.labels) {
+        const index = myChartInstance.data.labels.findIndex(l => String(l) === String(key));
+        if (index !== -1) {
+          myChartInstance.setActiveElements([{ datasetIndex: 0, index }]);
+          myChartInstance.update();
+        }
+      }
+    }
+
+    function renderTable(chartSpec, rows) {
+      $tableHead.innerHTML = "";
+      $tableBody.innerHTML = "";
+      rowElementsByKey = {};
+
+      if (!rows || rows.length === 0) {
+        const tr = document.createElement("tr");
+        const td = document.createElement("td");
+        td.colSpan = 1;
+        td.style.textAlign = "center";
+        td.style.padding = "40px";
+        td.style.color = "#6e6e73";
+        td.textContent = "조회 결과가 없습니다.";
+        tr.appendChild(td);
+        $tableBody.appendChild(tr);
+        return;
+      }
+
+      const firstRow = rows[0];
+      const keys = Object.keys(firstRow);
+
+      const headTr = document.createElement("tr");
+      keys.forEach(k => {
+        const th = document.createElement("th");
+        th.textContent = k;
+        headTr.appendChild(th);
+      });
+      $tableHead.appendChild(headTr);
+
+      rows.forEach(row => {
+        const tr = document.createElement("tr");
+        keys.forEach(k => {
+          const td = document.createElement("td");
+          const val = row[k];
+
+          if (typeof val === "number") {
+            td.textContent = val.toLocaleString();
+            td.classList.add("td-right");
+          } else {
+            td.textContent = val;
+          }
+
+          const keyLower = String(k).toLowerCase();
+          if (keyLower.includes("po") || keyLower.includes("번호") || keyLower.includes("code") || keyLower.includes("코드")) {
+            td.classList.add("td-mono");
+          }
+
+          tr.appendChild(td);
+        });
+
+        if (chartSpec && chartSpec.x_field && row[chartSpec.x_field] != null) {
+          const key = String(row[chartSpec.x_field]);
+          rowElementsByKey[key] = tr;
+          tr.dataset.key = key;
+
+          tr.addEventListener("mouseenter", () => highlightByKey(key));
+          tr.addEventListener("mouseleave", () => clearActiveRowHighlight());
+        }
+
+        $tableBody.appendChild(tr);
+      });
+    }
+
+    function renderChart(chartSpec, rows) {
+      const canvas = document.getElementById('myChart');
+      const ctx = canvas.getContext('2d');
+
+      if (!chartSpec || !rows || rows.length === 0) {
+        if (myChartInstance) { myChartInstance.destroy(); myChartInstance = null; }
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.font = "14px ui-sans-serif";
+        ctx.fillStyle = "#6e6e73";
+        ctx.textAlign = "center";
+        ctx.fillText("차트 데이터가 없습니다.", canvas.width / 2, canvas.height / 2);
+        return;
+      }
+
+      const xField = chartSpec.x_field;
+      const yField = chartSpec.y_field;
+      const title = chartSpec.title || "분석 결과";
+
+      const labels = rows.map(r => r[xField]);
+      const dataValues = rows.map(r => Number(r[yField]) || 0);
+
+      if (myChartInstance) myChartInstance.destroy();
+
+      const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+      gradient.addColorStop(0, 'rgba(0, 122, 255, 0.85)');
+      gradient.addColorStop(1, 'rgba(0, 122, 255, 0.15)');
+
+      myChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{
+            label: title,
+            data: dataValues,
+            backgroundColor: gradient,
+            borderColor: 'rgba(0, 122, 255, 1)',
+            borderWidth: 1,
+            borderRadius: 10,
+            barPercentage: 0.65,
+            hoverBackgroundColor: 'rgba(0, 122, 255, 1)'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: true, position: 'top' },
+            tooltip: {
+              backgroundColor: 'rgba(29, 29, 31, 0.92)',
+              callbacks: {
+                label: function(context) {
+                  let label = context.dataset.label || '';
+                  if (label) label += ': ';
+                  if (context.parsed.y !== null) label += context.parsed.y.toLocaleString();
+                  return label;
+                }
+              }
+            }
+          },
+          animation: { duration: 700 },
+          scales: {
+            y: {
+              beginAtZero: true,
+              grid: { color: 'rgba(0,0,0,0.06)' },
+              ticks: { callback: v => v.toLocaleString() }
+            },
+            x: { grid: { display: false } }
+          },
+          onHover: (event, elements) => {
+            if (elements && elements.length > 0) {
+              const index = elements[0].index;
+              const label = labels[index];
+              Object.values(rowElementsByKey).forEach(el => el.classList.remove("active-row"));
+              const row = rowElementsByKey[String(label)];
+              if (row) row.classList.add("active-row");
+            } else {
+              Object.values(rowElementsByKey).forEach(el => el.classList.remove("active-row"));
+            }
+          }
+        }
+      });
+    }
+
+    function renderSQL(sql) { $sqlCode.textContent = sql ? sql : "아직 SQL이 생성되지 않았습니다."; }
+    function renderInsight(insight) { $insightText.textContent = insight ? insight : "이번 질의에 대한 인사이트 텍스트가 아직 정의되지 않았습니다."; }
+    function renderKpi(rowCount, question) {
+      if (rowCount != null) {
+        $kpi1Value.textContent = rowCount.toLocaleString() + " 건";
+        $kpi1Desc.textContent = `마지막 질의 결과 건수 (질문: ${question.length > 12 ? question.slice(0, 12) + "..." : question})`;
+      }
+    }
+
+    function renderHistory() {
+      const $tbody = document.getElementById("historyTableBody");
+      $tbody.innerHTML = "";
+
+      if (historyList.length === 0) {
+        const tr = document.createElement("tr");
+        const td = document.createElement("td");
+        td.colSpan = 4;
+        td.style.textAlign = "center";
+        td.style.padding = "20px";
+        td.style.color = "#6e6e73";
+        td.textContent = "아직 분석 이력이 없습니다. 대시보드에서 먼저 질의를 실행해보세요.";
+        tr.appendChild(td);
+        $tbody.appendChild(tr);
+        return;
+      }
+
+      historyList.forEach(item => {
+        const tr = document.createElement("tr");
+
+        const tdTime = document.createElement("td");
+        tdTime.textContent = item.timestamp;
+
+        const tdQ = document.createElement("td");
+        tdQ.textContent = item.question;
+
+        const tdCnt = document.createElement("td");
+        tdCnt.className = "td-right";
+        tdCnt.textContent = (item.row_count ?? 0).toLocaleString();
+
+        const tdSql = document.createElement("td");
+        tdSql.classList.add("td-mono");
+        const sql = item.sql || "";
+        tdSql.textContent = sql.length > 60 ? sql.slice(0, 60) + "..." : sql;
+
+        tr.appendChild(tdTime);
+        tr.appendChild(tdQ);
+        tr.appendChild(tdCnt);
+        tr.appendChild(tdSql);
+        $tbody.appendChild(tr);
+      });
+    }
+
+    async function callBackend(question) {
+      const payload = { question };
+      const res = await axios.post(`${API_BASE}/ask`, payload);
+      return res.data;
+    }
+
+    async function handleQuery() {
+      const question = $queryInput.value.trim();
+      if (!question) { alert("질문을 입력해 주세요."); return; }
+
+      appendChatMessage("user", question);
+
+      $queryButton.disabled = true;
+      const originalText = $queryButton.textContent;
+      $queryButton.textContent = "분석 중...";
+
+      showSkeleton();
+
+      try {
+        const data = await callBackend(question);
+
+        renderInsight(data.insight);
+        renderChart(data.chart_spec, data.rows);
+        renderTable(data.chart_spec, data.rows);
+        renderSQL(data.sql);
+        renderKpi(data.row_count, data.question || question);
+
+        const aiText = data.insight ? data.insight : `SQL이 생성되었고, ${data.row_count ?? 0}건이 조회되었습니다.`;
+        appendChatMessage("assistant", aiText);
+
+        const now = new Date();
+        historyList.unshift({
+          timestamp: now.toLocaleString("ko-KR"),
+          question: data.question || question,
+          row_count: data.row_count ?? 0,
+          sql: data.sql || ""
+        });
+        renderHistory();
+
+      } catch (err) {
+        console.error(err);
+        const canvas = document.getElementById('myChart');
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.font = "14px ui-sans-serif";
+        ctx.fillStyle = "#6e6e73";
+        ctx.textAlign = "center";
+        ctx.fillText("오류가 발생했습니다.", canvas.width/2, canvas.height/2);
+        alert("백엔드 호출 중 오류가 발생했습니다. (콘솔 확인 필요)");
+      } finally {
+        $queryButton.disabled = false;
+        $queryButton.textContent = originalText;
+      }
+    }
+
+    $queryButton.addEventListener("click", handleQuery);
+    $queryInput.addEventListener("keydown", (e) => { if (e.key === "Enter") handleQuery(); });
+
+    function renderPriority() {
+      const body = document.getElementById("priorityTableBody");
+      const plantSel = document.getElementById("priorityPlant");
+      const levelSel = document.getElementById("priorityLevel");
+      if (!body || !plantSel || !levelSel) return;
+
+      const plant = plantSel.value;
+      const level = levelSel.value;
+
+      const filtered = priorityMock.filter(r => {
+        const okPlant = (plant === "ALL") || (String(r.plant) === String(plant));
+        const okLevel =
+          (level === "ALL") ||
+          (level === "HIGH" && r.level === "상") ||
+          (level === "MID" && r.level === "중") ||
+          (level === "LOW" && r.level === "하");
+        return okPlant && okLevel;
+      });
+
+      body.innerHTML = "";
+      if (filtered.length === 0) {
+        const tr = document.createElement("tr");
+        const td = document.createElement("td");
+        td.colSpan = 9;
+        td.style.textAlign = "center";
+        td.style.padding = "20px";
+        td.style.color = "#6e6e73";
+        td.textContent = "조건에 맞는 우선 발주 항목이 없습니다.";
+        tr.appendChild(td);
+        body.appendChild(tr);
+        return;
+      }
+
+      filtered.forEach(r => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td class="td-right td-mono">${r.rank}</td>
+          <td class="td-mono">${r.plant}</td>
+          <td class="td-mono">${r.mat}</td>
+          <td>${r.name}</td>
+          <td>${r.vendor}</td>
+          <td class="td-right">${Number(r.shortage).toLocaleString()}</td>
+          <td>${r.due}</td>
+          <td>${r.level}</td>
+          <td>${r.reason}</td>
+        `;
+        body.appendChild(tr);
+      });
+    }
+
+    document.getElementById("priorityPlant")?.addEventListener("change", renderPriority);
+    document.getElementById("priorityLevel")?.addEventListener("change", renderPriority);
+    document.getElementById("priorityRefresh")?.addEventListener("click", renderPriority);
+
+    function renderOpenPO() {
+      const body = document.getElementById("openTableBody");
+      const statusSel = document.getElementById("openStatus");
+      const search = document.getElementById("openSearch");
+      if (!body || !statusSel || !search) return;
+
+      const status = statusSel.value;
+      const keyword = (search.value || "").trim().toLowerCase();
+
+      const filtered = openMock.filter(r => {
+        const okStatus =
+          status === "ALL" ||
+          (status === "OK" && r.status === "정상") ||
+          (status === "CHECK" && r.status === "확인필요") ||
+          (status === "WARN" && r.status === "경고");
+
+        const blob = `${r.po} ${r.plant} ${r.vendor} ${r.item} ${r.status}`.toLowerCase();
+        const okKeyword = keyword === "" || blob.includes(keyword);
+        return okStatus && okKeyword;
+      });
+
+      const ok = openMock.filter(x => x.status === "정상").length;
+      const check = openMock.filter(x => x.status === "확인필요").length;
+      const warn = openMock.filter(x => x.status === "경고").length;
+
+      document.getElementById("badge_ok").textContent = `정상 ${ok}`;
+      document.getElementById("badge_check").textContent = `확인필요 ${check}`;
+      document.getElementById("badge_warn").textContent = `경고 ${warn}`;
+
+      body.innerHTML = "";
+      if (filtered.length === 0) {
+        const tr = document.createElement("tr");
+        const td = document.createElement("td");
+        td.colSpan = 8;
+        td.style.textAlign = "center";
+        td.style.padding = "20px";
+        td.style.color = "#6e6e73";
+        td.textContent = "조건에 맞는 미결 구매오더가 없습니다.";
+        tr.appendChild(td);
+        body.appendChild(tr);
+        return;
+      }
+
+      filtered.forEach(r => {
+        const tr = document.createElement("tr");
+
+        const pill =
+          r.status === "정상" ? `<span class="status-pill status-ok">정상</span>` :
+          r.status === "확인필요" ? `<span class="status-pill status-check">확인필요</span>` :
+          `<span class="status-pill status-warn">경고</span>`;
+
+        tr.innerHTML = `
+          <td class="td-mono">${r.po}</td>
+          <td class="td-mono">${r.plant}</td>
+          <td>${r.vendor}</td>
+          <td>${r.item}</td>
+          <td class="td-right">${Number(r.qty).toLocaleString()}</td>
+          <td class="td-mono">${r.due}</td>
+          <td>${pill}</td>
+          <td>${r.delay}</td>
+        `;
+        body.appendChild(tr);
+      });
+    }
+
+    document.getElementById("openStatus")?.addEventListener("change", renderOpenPO);
+    document.getElementById("openSearch")?.addEventListener("input", renderOpenPO);
+    document.getElementById("openRefresh")?.addEventListener("click", renderOpenPO);
+
+    window.addEventListener("load", () => {
+      runSplash();
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,101 @@
+!DOCTYPE html
+html
+head
+    title대시보드 시각화 예시title
+    script src=httpscdn.jsdelivr.netnpmchart.jsscript
+    style
+        body { font-family sans-serif; background-color #f4f7fe; padding 20px; }
+        .dashboard-container { display flex; gap 20px; }
+        .card { 
+            background white; 
+            padding 20px; 
+            border-radius 15px; 
+            box-shadow 0 4px 12px rgba(0,0,0,0.05);
+            width 45%;
+        }
+        h2 { color #333; font-size 18px; margin-bottom 15px; }
+    style
+head
+body
+
+    h1대시보드 시각화 (Chart.js)h1
+    
+    div class=dashboard-container
+        div class=card
+            h2Data Visualization (Bar)h2
+            canvas id=barChartcanvas
+        div
+
+        div class=card
+            h2Analysis Result (Line)h2
+            canvas id=lineChartcanvas
+        div
+    div
+
+    script
+         1. 막대 그래프 (영상처럼 올라가는 효과)
+        const ctxBar = document.getElementById('barChart').getContext('2d');
+        new Chart(ctxBar, {
+            type 'bar',
+            data {
+                labels ['100', '200', '300', '400', '500', '600'],
+                datasets [{
+                    label '판매량',
+                    data [1200, 1900, 3000, 5000, 2000, 3000],
+                    backgroundColor [
+                        '#4318FF', '#6AD2FF', '#EFF4FB', '#4318FF', '#6AD2FF', '#EFF4FB'
+                    ],
+                    borderRadius 10,  막대 끝을 둥글게
+                    barThickness 30
+                }]
+            },
+            options {
+                animation {
+                    duration 2000,  2초 동안 애니메이션 실행
+                    easing 'easeOutQuart'  부드럽게 멈추는 효과
+                },
+                scales {
+                    y { beginAtZero true, grid { display false } },
+                    x { grid { display false } }
+                },
+                plugins { legend { display false } }
+            }
+        });
+
+         2. 선 그래프 (영상처럼 그려지는 효과)
+        const ctxLine = document.getElementById('lineChart').getContext('2d');
+        new Chart(ctxLine, {
+            type 'line',
+            data {
+                labels ['2000', '2010', '2020', '2030', '2040'],
+                datasets [{
+                    label '성장률',
+                    data [100, 500, 400, 800, 750],
+                    borderColor '#01B574',
+                    backgroundColor '#01B574',
+                    tension 0.4,  곡선을 부드럽게
+                    pointRadius 5
+                },
+                {
+                    label '예상치',
+                    data [200, 300, 600, 500, 900],
+                    borderColor '#FFB547',
+                    backgroundColor '#FFB547',
+                    tension 0.4,
+                    pointRadius 5
+                }]
+            },
+            options {
+                animation {
+                    duration 2000,
+                    easing 'easeInOutBounce'  약간 튕기는 효과
+                },
+                interaction {
+                    mode 'index',
+                    intersect false,
+                },
+            }
+        });
+    script
+body
+html

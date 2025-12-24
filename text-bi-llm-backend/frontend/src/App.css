@@ -1,0 +1,370 @@
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+/* 전체 레이아웃 기본 */
+html, body {
+    height: 100%;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #f4f5f7;
+    color: #0f172a;
+}
+
+.app {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+}
+
+/* 헤더 영역 */
+.header {
+    height: 56px;
+    background: #0f172a;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+}
+
+.header-title {
+    font-weight: 600;
+    font-size: 16px;
+}
+
+.header-right {
+    font-size: 13px;
+    opacity: 0.9;
+}
+
+.badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    background: #1d4ed8;
+    margin-left: 8px;
+}
+
+/* 본문 레이아웃 */
+.body {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+}
+
+/* 사이드바 */
+.sidebar {
+    width: 220px;
+    background: #020617;
+    color: #cbd5f5;
+    padding: 16px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.sidebar-title {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #e5e7eb;
+}
+
+.nav-section,
+.template-section {
+    font-size: 13px;
+}
+
+.nav-item {
+    padding: 8px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    margin-bottom: 4px;
+}
+
+.nav-item.active {
+    background: #1d4ed8;
+    color: white;
+}
+
+.nav-item:hover {
+    background: #111827;
+}
+
+.template-button {
+    padding: 6px 8px;
+    border-radius: 8px;
+    background: #020617;
+    border: 1px solid #1e293b;
+    margin-bottom: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    color: #e5e7eb;
+}
+
+.template-button:hover {
+    background: #0b1120;
+}
+
+/* 메인 패널 */
+.main {
+    flex: 1;
+    padding: 16px 20px;
+    overflow-y: auto;
+}
+
+/* 카드 공통 */
+.section-card {
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 16px 18px;
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06);
+    margin-bottom: 16px;
+}
+
+.section-title {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* 질문 입력 영역 */
+.query-row {
+    display: flex;
+    gap: 12px;
+    margin-top: 8px;
+}
+
+.query-input {
+    flex: 1;
+    border-radius: 10px;
+    border: 1px solid #d1d5db;
+    padding: 10px 12px;
+    font-size: 14px;
+}
+
+.query-input:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.2);
+}
+
+.button-primary {
+    border: none;
+    border-radius: 999px;
+    padding: 0 16px;
+    font-size: 14px;
+    background: #2563eb;
+    color: white;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.button-primary:hover {
+    background: #1d4ed8;
+}
+
+.button-primary:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+
+/* 태그/라벨 */
+.tag {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: #eff6ff;
+    color: #1d4ed8;
+    margin-left: 8px;
+}
+
+/* 라우터 액션 뱃지 */
+.action-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    background: #eef2ff;
+    color: #4338ca;
+}
+
+/* 상태 메시지 (로딩/에러 등) */
+.status-bar {
+    margin-top: 8px;
+    font-size: 12px;
+}
+
+.status-loading {
+    color: #2563eb;
+}
+
+.status-error {
+    color: #b91c1c;
+}
+
+/* 요약/인사이트 레이아웃 */
+.summary-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+    gap: 12px;
+}
+
+@media (max-width: 960px) {
+    .summary-layout {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+.insight-text {
+    font-size: 13px;
+    line-height: 1.5;
+    color: #374151;
+    white-space: pre-line;
+}
+
+/* 인사이트 안의 강조 숫자 표현할 때 */
+.insight-highlight {
+    font-weight: 600;
+    color: #1d4ed8;
+}
+
+/* KPI 카드 영역 (원하면 rows에서 골라서 쓰기) */
+.kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+}
+
+@media (max-width: 960px) {
+    .kpi-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+.kpi-card {
+    background: #f9fafb;
+    border-radius: 12px;
+    padding: 10px 12px;
+}
+
+.kpi-label {
+    font-size: 11px;
+    color: #6b7280;
+}
+
+.kpi-value {
+    margin-top: 4px;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.kpi-sub {
+    font-size: 11px;
+    color: #9ca3af;
+}
+
+/* 아래쪽: 차트 + 테이블 레이아웃 */
+.bottom-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    gap: 12px;
+    margin-top: 4px;
+}
+
+@media (max-width: 960px) {
+    .bottom-layout {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+/* 차트 영역 (나중에 실제 차트 컴포넌트로 교체 가능) */
+.mock-chart {
+    background: linear-gradient(135deg, #eff6ff, #e5e7eb);
+    border-radius: 12px;
+    height: 220px;
+    position: relative;
+    overflow: hidden;
+}
+
+.mock-chart::after {
+    content: "여기에 BI 차트가 표시됩니다 (백엔드 chart_spec 기반)";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 13px;
+    color: #4b5563;
+}
+
+/* 테이블 래퍼: 스크롤 가능하게 */
+.table-wrapper {
+    max-height: 260px;
+    overflow: auto;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+    background: #ffffff;
+}
+
+/* 결과 테이블 */
+.table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+
+.table th,
+.table td {
+    padding: 6px 8px;
+    border-bottom: 1px solid #e5e7eb;
+    text-align: right;
+}
+
+.table th:first-child,
+.table td:first-child {
+    text-align: left;
+}
+
+.table th {
+    font-weight: 600;
+    background: #f9fafb;
+}
+
+/* SQL 박스 */
+.sql-box {
+    font-family: "Fira Code", monospace;
+    font-size: 11px;
+    background: #0b1120;
+    color: #e5e7eb;
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin-top: 8px;
+    white-space: pre-wrap;
+}
+
+/* SQL 라벨용 */
+.sql-label {
+    font-size: 11px;
+    color: #6b7280;
+    margin-top: 4px;
+}
+
+/* 헬프/리포트용 텍스트 영역 */
+.help-text,
+.report-text {
+    font-size: 13px;
+    line-height: 1.6;
+    color: #374151;
+    white-space: pre-line;
+}
